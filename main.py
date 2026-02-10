@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os, sys, time, random, urllib.request, py_compile
-from datetime import datetime
+from datetime import datetime, date
 import pygame
 
 # =========================
@@ -45,6 +45,15 @@ EMOJIS = [
 ]
 
 DEFAULT_QUOTES = ["SYSTEMS OPTIMAL.", "LERNEN...", "WARTE AUF EINGABE", "RAD-LEVEL NORMAL."]
+
+# --- FERIEN (anpassen, falls sich Termine ändern) ---
+HOLIDAYS = [
+    ("Winterferien", date(2026, 2, 2), date(2026, 2, 6)),
+    ("Osterferien", date(2026, 3, 30), date(2026, 4, 10)),
+    ("Sommerferien", date(2026, 7, 2), date(2026, 8, 12)),
+    ("Herbstferien", date(2026, 10, 19), date(2026, 10, 30)),
+    ("Weihnachtsferien", date(2026, 12, 23), date(2027, 1, 1)),
+]
 
 # --- STUNDENPLAN ---
 PLAN = [
@@ -93,6 +102,25 @@ def get_status_data():
             time_str = f"{sh:02d}:{sm:02d}-{eh:02d}:{em:02d}"
             return label, time_str, (cur-start)/total, end-cur
     return "FREIZEIT", "", 0.0, 0
+
+def get_next_holiday_data(today=None):
+    if today is None:
+        today = date.today()
+
+    # erst prüfen, ob gerade Ferien sind
+    for name, start, end in HOLIDAYS:
+        if start <= today <= end:
+            left = (end - today).days + 1
+            return f"{name}: Noch {left} Tag(e)"
+
+    # dann nächste zukünftige Ferien finden
+    upcoming = [(name, start) for name, start, end in HOLIDAYS if start > today]
+    if not upcoming:
+        return "Keine Ferientermine hinterlegt"
+
+    name, start = min(upcoming, key=lambda item: item[1])
+    days_left = (start - today).days
+    return f"Bis {name}: {days_left} Tag(e)"
 
 def calc_grade_decimal(p_ist, p_max, school_type):
     """Berechnet die Note als Dezimalzahl (z.B. 2,4)."""
@@ -233,6 +261,7 @@ def main():
         if state == "HOME":
             now = datetime.now()
             draw_text_safe(screen, f_xl, now.strftime("%H:%M:%S"), MAIN_COL, (20, 10), "topleft")
+            draw_text_safe(screen, f_s, now.strftime("%d.%m.%Y"), WHITE, (22, 88), "topleft")
             
             for i, ico in enumerate(["☢", "⚡", "📶"]):
                 col = MAIN_COL if int(time.time())%2==0 else DIM_COL
@@ -242,12 +271,14 @@ def main():
             draw_text_safe(screen, f_l, curr_emoji, MAIN_COL, (W//2, 115), "center")
 
             label, timespan, prog, remain = get_status_data()
+            holiday_info = get_next_holiday_data(now.date())
             pygame.draw.rect(screen, DIM_COL, (30, 175, 420, 50))
             pygame.draw.rect(screen, MAIN_COL, (30, 175, int(420 * prog), 50))
             
             draw_text_safe(screen, f_s, label, BLACK, (40, 188), "topleft")
             m, s = divmod(int(remain), 60)
             draw_text_safe(screen, f_s, f"{m:02d}:{s:02d}", BLACK, (370, 188), "topleft")
+            draw_text_safe(screen, f_xs, holiday_info, WHITE, (W//2, 235), "center")
 
             pygame.draw.line(screen, MAIN_COL, (scan_line_x, 315), (scan_line_x+40, 315), 2)
 
