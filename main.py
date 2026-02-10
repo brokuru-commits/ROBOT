@@ -1,204 +1,176 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
+import pygame
 import sys
 import time
 import random
-import pygame
 from datetime import datetime
 
-# --- DISPLAY FIX ---
-os.environ["DISPLAY"] = ":0"
+# =============================
+# BASIS
+# =============================
+W, H = 480, 320
+FPS = 20
 
-# --- KONFIGURATION ---
-WIDTH, HEIGHT = 640, 480
-COLOR_TOXIC    = (0, 255, 60)
-COLOR_SCANLINE = (0, 15, 0)
-COLOR_WHITE    = (255, 255, 255)
-COLOR_DARK     = (0, 15, 0)
+F_GREEN = (80, 255, 80)
+F_DIM   = (20, 60, 20)
+F_WARN  = (255, 180, 60)
+F_BLUE  = (0, 180, 255)
+BLACK   = (0, 0, 0)
 
-BASE_DIR   = "/home/bot/robot/ui"
-ASSETS_DIR = os.path.join(BASE_DIR, "assets")
-EMOTES_DIR = os.path.join(ASSETS_DIR, "emotes")
-BG_FILE    = os.path.join(ASSETS_DIR, "bg.png")
-TXT_FILE   = os.path.join(ASSETS_DIR, "emotions.txt")
+pygame.init()
+pygame.mouse.set_visible(False)
+screen = pygame.display.set_mode((W, H), pygame.FULLSCREEN)
+clock = pygame.time.Clock()
 
-# --- STUNDENPLAN DATEN ---
-# Format: (Startzeit, Endzeit, Name/Typ)
-SCHEDULE = [
-    ("07:30", "08:00", "VORBEREITUNG"),
-    ("08:00", "08:45", "1. STUNDE"),
-    ("08:45", "08:50", "PAUSE (5M)"),
-    ("08:50", "09:35", "2. STUNDE"),
-    ("09:35", "09:55", "GR. PAUSE (20M)"),
-    ("09:55", "10:40", "3. STUNDE"),
-    ("10:40", "10:45", "PAUSE (5M)"),
-    ("10:45", "11:30", "4. STUNDE"),
-    ("11:30", "11:50", "GR. PAUSE (20M)"),
-    ("11:50", "12:35", "5. STUNDE"),
-    ("12:35", "12:40", "PAUSE (5M)"),
-    ("12:40", "13:25", "6. STUNDE"),
-    ("13:25", "13:35", "PAUSE (10M)"),
-    ("13:35", "14:20", "7. STUNDE"),
-    ("14:20", "14:25", "PAUSE (5M)"),
-    ("14:25", "15:10", "8. STUNDE"),
-    ("15:10", "15:15", "PAUSE (5M)"),
-    ("15:15", "16:00", "9. STUNDE")
+f_xl = pygame.font.SysFont("DejaVu Sans Mono", 48, True)
+f_l  = pygame.font.SysFont("DejaVu Sans Mono", 32, True)
+f_m  = pygame.font.SysFont("DejaVu Sans Mono", 26)
+f_s  = pygame.font.SysFont("DejaVu Sans Mono", 20)
+f_mono = pygame.font.SysFont("Courier", 26, True)
+
+# =============================
+# STUNDENPLAN
+# =============================
+PLAN = [
+    (7,30, 8,0,  "PAUSE"),
+    (8,0,  8,45, "UNTERRICHT"),
+    (8,45, 8,50, "PAUSE"),
+    (8,50, 9,35, "UNTERRICHT"),
+    (9,35, 9,55, "PAUSE"),
+    (9,55, 10,40,"UNTERRICHT"),
+    (10,40,10,45,"PAUSE"),
+    (10,45,11,30,"UNTERRICHT"),
+    (11,30,11,50,"PAUSE"),
+    (11,50,12,35,"UNTERRICHT"),
+    (12,35,12,40,"PAUSE"),
+    (12,40,13,25,"UNTERRICHT"),
+    (13,25,13,35,"PAUSE"),
+    (13,35,14,20,"UNTERRICHT"),
+    (14,20,14,25,"PAUSE"),
+    (14,25,15,10,"UNTERRICHT"),
+    (15,10,15,15,"PAUSE"),
+    (15,15,16,0, "UNTERRICHT"),
+    (16,0, 17,0, "FEIERABEND")
 ]
 
-def get_current_status():
+def secs(h,m,s=0): return h*3600+m*60+s
+
+def get_status():
     now = datetime.now()
-    now_str = now.strftime("%H:%M")
-    
-    for start, end, label in SCHEDULE:
-        if start <= now_str < end:
-            # Berechnung der verbleibenden Minuten
-            end_time = datetime.strptime(end, "%H:%M").replace(year=now.year, month=now.month, day=now.day)
-            remaining = int((end_time - now).total_seconds() / 60)
-            
-            # Fortschritt berechnen (0.0 bis 1.0)
-            start_time = datetime.strptime(start, "%H:%M").replace(year=now.year, month=now.month, day=now.day)
-            total_duration = (end_time - start_time).total_seconds()
-            elapsed = (now - start_time).total_seconds()
-            progress = elapsed / total_duration if total_duration > 0 else 0
-            
-            return label, remaining, progress
-            
-    return "FEIERABEND", 0, 1.0
+    cur = secs(now.hour, now.minute, now.second)
+    for sh,sm,eh,em,label in PLAN:
+        start = secs(sh,sm)
+        end   = secs(eh,em)
+        if start <= cur < end:
+            total = end-start
+            done  = cur-start
+            return label, end-cur, done/total
+    return "FREIZEIT", 0, 0
 
-def load_quotes():
-    q = {}
-    if os.path.exists(TXT_FILE):
-        try:
-            with open(TXT_FILE, "r", encoding="utf-8") as f:
-                for line in f:
-                    if "|" in line:
-                        idx, text = line.split("|", 1)
-                        q.setdefault(idx.strip(), []).append(text.strip())
-        except: pass
-    return q
+def fmt(sec):
+    m,s = divmod(max(0,int(sec)),60)
+    return f"{m:02d}:{s:02d}"
 
-def main():
-    pygame.init()
-    try:
-        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN | pygame.NOFRAME)
-    except:
-        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.NOFRAME)
-        
-    pygame.mouse.set_visible(False)
-    clock = pygame.time.Clock()
+def blend(c1,c2,t):
+    return tuple(int(c1[i]+(c2[i]-c1[i])*t) for i in range(3))
 
-    font_huge  = pygame.font.SysFont("monospace", 110, bold=True)
-    font_med   = pygame.font.SysFont("monospace", 40, bold=True)
-    font_small = pygame.font.SysFont("monospace", 18, bold=True)
+# =============================
+# HAMSTER (SYSTEM ENTITY)
+# =============================
+HAMSTER = [
+    "(\\__/)",
+    "(•ㅅ• )   < compiling reality",
+    "/ 　 づ"
+]
 
-    bg_img = None
-    if os.path.exists(BG_FILE):
-        try:
-            bg_img = pygame.image.load(BG_FILE).convert()
-            bg_img = pygame.transform.scale(bg_img, (WIDTH, HEIGHT))
-        except: pass
+EVENTS = [
+    ["[ SYS ] SCANNING ENVIRONMENT",
+     "[ OK ] REALITY STABLE",
+     "[ OK ] HAMSTER AWAKE"],
 
-    quotes_data = load_quotes()
-    state = "HOME"
-    event_timer = 0
-    next_event_time = time.time() + 30
-    
-    bottom_scan_x = 0
-    current_quote = "SYSTEM BEREIT"
-    current_id = "1"
-    active_face = "(o_o)"
-    last_face_change = 0
-    ascii_faces = ["(o_o)", "[O.O]", "(^.^)", "<o.o>", "( -_-)", "[(X)]"]
-    
-    pulse_val, pulse_dir = 155, 4
+    ["[ WARNING ]",
+     "ANOMALY DETECTED",
+     "PROBABLY YOU"],
 
-    while True:
-        now_ts = time.time()
-        dt = datetime.now()
-        
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE: 
-                pygame.quit(); sys.exit()
+    ["[ LEAK ]",
+     "SOME DATA ESCAPED",
+     "I SAW NOTHING"],
 
-        # --- EVENT LOGIK ---
-        if state == "HOME" and now_ts > next_event_time:
-            state = "EVENT"
-            event_type = random.choice(["EMOTE", "WARNUNG", "FEHLER"])
-            event_timer = now_ts + 5
-            if event_type == "EMOTE":
-                current_id = str(random.randint(1, 4))
-                current_quote = random.choice(quotes_data.get(current_id, ["SYSTEM AKTIV"]))
-            elif event_type == "WARNUNG": current_quote = "!!! RAD-ALARM !!!"
-            else: current_quote = "REKALIBRIERE KERN..."
+    ["[ ALERT ]",
+     "MICRO NUCLEAR HOLE",
+     "SIZE: IRRELEVANT"],
 
-        if state == "EVENT" and now_ts > event_timer:
-            state = "HOME"
-            next_event_time = now_ts + random.randint(45, 120)
+    ["[ SYS ]",
+     "THIS IS",
+     "UNNECESSARILY HARD"],
 
-        # --- RENDERING ---
-        if bg_img: screen.blit(bg_img, (0, 0))
-        else: screen.fill(COLOR_DARK)
+    ["[ HAMSTER ]",
+     "I FIXED IT",
+     "DON'T ASK HOW"],
 
-        if state == "HOME":
-            # Uhr & Datum
-            screen.blit(font_huge.render(dt.strftime("%H:%M"), True, COLOR_TOXIC), (30, 40))
-            
-            # Wochentage auf Deutsch mappen
-            wd_map = {"Monday":"MONTAG", "Tuesday":"DIENSTAG", "Wednesday":"MITTWOCH", "Thursday":"DONNERSTAG", "Friday":"FREITAG", "Saturday":"SAMSTAG", "Sunday":"SONNTAG"}
-            day_str = wd_map.get(dt.strftime("%A"), dt.strftime("%A").upper())
-            screen.blit(font_med.render(f"{day_str}, {dt.strftime('%d.%m.')}", True, COLOR_TOXIC), (35, 145))
+    ["[ HAMSTER ]",
+     "WHY ARE YOU STILL HERE?"],
 
-            # ASCII Gesicht
-            if now_ts - last_face_change > 5:
-                active_face = random.choice(ascii_faces); last_face_change = now_ts
-            screen.blit(font_med.render(active_face, True, COLOR_TOXIC), (35, 230))
-            
-            # Spruch
-            screen.blit(font_small.render(current_quote.upper(), True, COLOR_TOXIC), (35, 300))
+    ["[ SYS ]",
+     "EVERYTHING IS FINE",
+     "STOP ASKING"]
+]
 
-            # Icons Oben Rechts
-            pulse_val += pulse_dir
-            if pulse_val >= 250 or pulse_val <= 150: pulse_dir *= -1
-            for i, char in enumerate([">", "#", "!"]):
-                screen.blit(font_small.render(f"[{char}]", True, (0, pulse_val, 0)), (520 + (i*40), 30))
+active_event = None
+event_until = 0
+next_event  = time.time()+random.randint(30,90)
 
-            # --- ASCII FORTSCHRITTSBALKEN (STRENG NACH DEINEM PLAN) ---
-            label, rem, prog = get_current_status()
-            bar_len = 30
-            filled = int(prog * bar_len)
-            bar_str = "[" + "|" * filled + " " * (bar_len - filled) + "]"
-            
-            info_str = f"{bar_str} {label}: NOCH {rem} MIN" if label != "FEIERABEND" else f"{bar_str} {label}"
-            b_surf = font_small.render(info_str, True, COLOR_TOXIC)
-            screen.blit(b_surf, (WIDTH//2 - b_surf.get_width()//2, HEIGHT-40))
+# =============================
+# MAIN LOOP
+# =============================
+while True:
+    clock.tick(FPS)
+    for e in pygame.event.get():
+        if e.type == pygame.KEYDOWN:
+            pygame.quit(); sys.exit()
 
-        elif state == "EVENT":
-            if "RAD-ALARM" in current_quote:
-                screen.fill((200, 0, 0))
-                msg = font_huge.render("WARNUNG", True, COLOR_WHITE)
-                screen.blit(msg, (WIDTH//2 - msg.get_width()//2, 150))
-            else:
-                img_p = os.path.join(EMOTES_DIR, f"{current_id}.png")
-                if os.path.exists(img_p):
-                    img = pygame.image.load(img_p).convert()
-                    img = pygame.transform.scale(img, (WIDTH, HEIGHT))
-                    screen.blit(img, (0, 0))
-            screen.blit(font_med.render(current_quote.upper(), True, COLOR_WHITE), (WIDTH//2 - 150, 400))
+    screen.fill(BLACK)
 
-        # Untere Scan-Linie (Dünn, Farbe wechselnd)
-        import math
-        bottom_scan_x = (bottom_scan_x + 6) % WIDTH
-        c_val = int(math.sin(now_ts * 2) * 127 + 128)
-        pygame.draw.line(screen, (0, 255, c_val), (bottom_scan_x, HEIGHT-10), (bottom_scan_x + 30, HEIGHT-10), 2)
+    # Uhr
+    now = datetime.now().strftime("%H:%M")
+    screen.blit(f_xl.render(now,True,F_GREEN),(20,10))
 
-        # Scanlines Gitter
-        for y in range(0, HEIGHT, 4):
-            pygame.draw.line(screen, COLOR_SCANLINE, (0, y), (WIDTH, y))
+    # Hamster ASCII
+    y = 80
+    for l in HAMSTER:
+        screen.blit(f_mono.render(l,True,F_GREEN),(40,y))
+        y+=28
 
-        pygame.display.flip()
-        clock.tick(30)
+    # Status
+    label, remain, prog = get_status()
+    is_pause = "PAUSE" in label
 
-if __name__ == "__main__":
-    main()
+    base = F_BLUE if is_pause else F_GREEN
+    color = base
+    if remain <= 120:
+        color = blend(base,F_WARN,1-remain/120)
+
+    # Balken
+    pygame.draw.rect(screen,F_DIM,(40,200,400,26))
+    pygame.draw.rect(screen,color,(40,200,int(400*prog),26))
+    txt = f"{label} – noch {fmt(remain)}"
+    screen.blit(f_m.render(txt,True,F_GREEN),(40,170))
+
+    # Zufalls-Events
+    t = time.time()
+    if active_event is None and t > next_event:
+        active_event = random.choice(EVENTS)
+        event_until = t+random.randint(4,6)
+        next_event = t+random.randint(60,140)
+
+    if active_event:
+        y = 240
+        for l in active_event:
+            screen.blit(f_s.render(l,True,F_GREEN),(W//2-150,y))
+            y+=22
+        if t > event_until:
+            active_event = None
+
+    pygame.display.flip()
