@@ -1,145 +1,156 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
-import sys
-import time
-import random
+import os, sys, time, random, pygame
 from datetime import datetime
-import pygame
 
 # --- DISPLAY FIX ---
 os.environ["DISPLAY"] = ":0"
 
-# --- KONFIGURATION (Auf 640x480 angepasst) ---
+# --- KONFIGURATION ---
 WIDTH, HEIGHT = 640, 480
-COLOR_BG       = (0, 10, 0)
+COLOR_BG       = (0, 5, 0)
 COLOR_TOXIC    = (0, 255, 60)
-COLOR_TEXT     = (200, 255, 200)
+COLOR_ALARM    = (255, 50, 0) # Rot fuer Alarm
 COLOR_SCANLINE = (0, 20, 0)
 
-# Pfade absolut setzen
 BASE_DIR   = "/home/bot/robot/ui"
-ASSETS_DIR = os.path.join(BASE_DIR, "assets")
-EMOTES_DIR = os.path.join(ASSETS_DIR, "emotes")
-TXT_FILE   = os.path.join(ASSETS_DIR, "emotions.txt")
+EMOTES_DIR = os.path.join(BASE_DIR, "assets", "emotes")
+TXT_FILE   = os.path.join(BASE_DIR, "assets", "emotions.txt")
+
+# --- LOGIK-WERTE ---
+STATE_HOME  = "HOME"
+STATE_EMOTE = "EMOTE"
+STATE_ALARM = "ALARM"
+
+# Beispiel-Stundenplan (Anpassen!)
+LESSONS = [
+    ("08:00", "09:30"), ("09:45", "11:15"), ("11:30", "13:00")
+]
 
 def load_quotes():
-    """Laedt Sprueche ohne Sonderzeichen-Fehler."""
-    quotes_map = {}
+    quotes = {}
     if os.path.exists(TXT_FILE):
         try:
             with open(TXT_FILE, "r", encoding="utf-8") as f:
                 for line in f:
                     if "|" in line:
                         idx, text = line.split("|", 1)
-                        quotes_map.setdefault(idx.strip(), []).append(text.strip())
-            print("INFO: Sprueche erfolgreich geladen.")
-        except Exception as e:
-            print("ERROR: Fehler beim Lesen der emotions.txt")
-    else:
-        print("WARNUNG: emotions.txt nicht gefunden.")
-    return quotes_map
+                        quotes.setdefault(idx.strip(), []).append(text.strip())
+        except: pass
+    return quotes
+
+def get_lesson_progress():
+    now = datetime.now().strftime("%H:%M")
+    for start, end in LESSONS:
+        if start <= now <= end:
+            return True, f"UNTERRICHT BIS {end}"
+    return False, "PAUSE / FREIZEIT"
 
 def main():
-    print("--- HEUM-TEC SYSTEM START (640x480) ---")
-    
-    try:
-        pygame.init()
-        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.NOFRAME)
-        pygame.mouse.set_visible(False)
-        print("OK: Grafiksystem initialisiert.")
-    except Exception as e:
-        print("ERROR: Kritischer Grafikfehler.")
-        sys.exit()
-
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.NOFRAME)
+    pygame.mouse.set_visible(False)
     clock = pygame.time.Clock()
-    
-    # Schriftgrößen für 640x480 leicht erhöht
-    font_big = pygame.font.SysFont("monospace", 110, bold=True)
-    font_date = pygame.font.SysFont("monospace", 55, bold=True)
-    font_msg = pygame.font.SysFont("monospace", 28, bold=True)
+
+    # Fonts
+    font_big  = pygame.font.SysFont("monospace", 100, bold=True)
+    font_med  = pygame.font.SysFont("monospace", 35, bold=True)
+    font_small = pygame.font.SysFont("monospace", 22, bold=True)
 
     quotes_data = load_quotes()
-    last_logic_update = 0
+    state = STATE_HOME
+    state_timer = 0
+    next_emote_time = time.time() + random.randint(120, 300) # Alle 2-5 Min
+    
     current_id = "1"
-    current_quote = "BOOTING..."
-    
-    scan_y = 0
-    glitch_offset = 0
-    glitch_timer = 0
-    weekdays = ["MONTAG", "DIENSTAG", "MITTWOCH", "DONNERSTAG", "FREITAG", "SAMSTAG", "SONNTAG"]
+    current_quote = "SYSTEM READY"
+    pulse = 0
+    pulse_dir = 1
 
-    print("--- STARTE RENDERING ---")
-    
-    try:
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    return
+    while True:
+        now_ts = time.time()
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE: return
 
-            # Logik & Zeit (1=Happy, 2=Bored, 3=Panic, 4=Profit)
-            if time.time() - last_logic_update > 12:
-                now_hour = datetime.now().hour
-                if now_hour >= 20: current_id = "4"
-                elif 8 <= now_hour < 14: current_id = "2"
-                elif random.random() < 0.08: current_id = "3" 
-                else: current_id = "1"
-                
-                possible_quotes = quotes_data.get(current_id, ["SYSTEM ONLINE"])
-                current_quote = random.choice(possible_quotes)
-                last_logic_update = time.time()
+        # --- ZUSTANDS-MASCHINE ---
+        if state == STATE_HOME:
+            if now_ts > next_emote_time:
+                state = STATE_EMOTE
+                state_timer = now_ts + 7
+                current_id = str(random.randint(1, 4))
+                current_quote = random.choice(quotes_data.get(current_id, ["HELLO"]))
+            elif random.random() < 0.001: # Zufalls-Alarm
+                state = STATE_ALARM
+                state_timer = now_ts + 4
+                current_quote = "NUCLEAR ALERT!"
 
-            # Glitch-Logik
-            if glitch_timer > 0:
-                glitch_timer -= 1
-                glitch_offset = random.randint(-4, 4)
-            else:
-                if random.random() < 0.01: glitch_timer = 4
-                glitch_offset = 0
+        elif state in [STATE_EMOTE, STATE_ALARM]:
+            if now_ts > state_timer:
+                state = STATE_HOME
+                next_emote_time = now_ts + random.randint(180, 400)
 
-            # --- ZEICHNEN ---
-            screen.fill(COLOR_BG)
-            dt = datetime.now()
+        # --- ZEICHNEN ---
+        screen.fill(COLOR_BG)
+        dt = datetime.now()
+        
+        # Pulsieren fuer Icons
+        pulse += 2 * pulse_dir
+        if pulse >= 100 or pulse <= 0: pulse_dir *= -1
 
-            # 1. Uhrzeit (Zentral)
-            time_surf = font_big.render(dt.strftime("%H:%M"), True, COLOR_TOXIC)
-            screen.blit(time_surf, (WIDTH//2 - time_surf.get_width()//2 + glitch_offset, 20))
+        if state == STATE_HOME:
+            # 1. Uhrzeit & Datum
+            t_surf = font_big.render(dt.strftime("%H:%M"), True, COLOR_TOXIC)
+            screen.blit(t_surf, (WIDTH//2 - t_surf.get_width()//2, 50))
+            
+            d_str = dt.strftime("%d.%m.%Y")
+            d_surf = font_med.render(d_str, True, COLOR_TOXIC)
+            screen.blit(d_surf, (WIDTH//2 - d_surf.get_width()//2, 160))
 
-            # 2. Datum & Wochentag
-            date_str = f"{weekdays[dt.weekday()]} {dt.strftime('%d.%m.')}"
-            date_surf = font_date.render(date_str, True, COLOR_TOXIC)
-            screen.blit(date_surf, (WIDTH//2 - date_surf.get_width()//2, 130))
+            # 2. Unterrichts-Balken
+            in_lesson, lesson_text = get_lesson_progress()
+            pygame.draw.rect(screen, (0, 40, 0), (50, 240, 540, 50)) # Hintergrund
+            if in_lesson:
+                pygame.draw.rect(screen, COLOR_TOXIC, (55, 245, 530, 40), 2)
+            l_surf = font_small.render(lesson_text, True, COLOR_TOXIC)
+            screen.blit(l_surf, (WIDTH//2 - l_surf.get_width()//2, 252))
 
-            # 3. Kafer-Bild (Groesser für 640x480)
+            # 3. Pulsierende Icons (Rechts Oben)
+            for i in range(3):
+                alpha_color = (0, pulse + 155, 0)
+                pygame.draw.circle(screen, alpha_color, (550 + (i*25), 40), 8, 2)
+            
+            # 4. Spruch
+            q_surf = font_small.render(current_quote.upper(), True, COLOR_TOXIC)
+            screen.blit(q_surf, (WIDTH//2 - q_surf.get_width()//2, 350))
+
+        elif state == STATE_EMOTE:
+            # Beetle erscheint mit Scan-Effekt
             img_path = os.path.join(EMOTES_DIR, f"{current_id}.png")
             if os.path.exists(img_path):
-                try:
-                    img = pygame.image.load(img_path).convert()
-                    img = pygame.transform.scale(img, (280, 280))
-                    screen.blit(img, (WIDTH//2 - 140 + glitch_offset, 190))
-                except:
-                    pygame.draw.rect(screen, COLOR_TOXIC, (WIDTH//2-70, 200, 140, 140), 1)
-            else:
-                pygame.draw.rect(screen, (100,0,0), (WIDTH//2-70, 200, 140, 140), 1)
+                img = pygame.image.load(img_path).convert()
+                img = pygame.transform.scale(img, (350, 350))
+                screen.blit(img, (WIDTH//2 - 175, 40))
+            q_surf = font_med.render(current_quote.upper(), True, COLOR_TOXIC)
+            screen.blit(q_surf, (WIDTH//2 - q_surf.get_width()//2, 410))
 
-            # 4. Spruch
-            msg_surf = font_msg.render(current_quote.upper(), True, COLOR_TEXT)
-            screen.blit(msg_surf, (WIDTH//2 - msg_surf.get_width()//2, HEIGHT - 45))
+        elif state == STATE_ALARM:
+            # Nuklearer Wackler (Bunt & Shake)
+            offset_x = random.randint(-20, 20)
+            offset_y = random.randint(-20, 20)
+            rnd_color = (random.randint(100, 255), random.randint(0, 50), 0)
+            screen.fill(rnd_color)
+            a_surf = font_big.render("WARNING", True, (255, 255, 255))
+            screen.blit(a_surf, (WIDTH//2 - a_surf.get_width()//2 + offset_x, 150 + offset_y))
 
-            # 5. Scanlines & Radar-Effekt
-            scan_y = (scan_y + 3) % HEIGHT
-            pygame.draw.line(screen, (0, 255, 60, 60), (0, scan_y), (WIDTH, scan_y), 2)
-            for y in range(0, HEIGHT, 4):
-                pygame.draw.line(screen, COLOR_SCANLINE, (0, y), (WIDTH, y))
+        # 5. Dezente Scanline unten
+        pygame.draw.line(screen, COLOR_TOXIC, (0, HEIGHT-10), (WIDTH, HEIGHT-10), 1)
+        # Globales Flimmern
+        for y in range(0, HEIGHT, 4):
+            pygame.draw.line(screen, COLOR_SCANLINE, (0, y), (WIDTH, y))
 
-            pygame.display.flip()
-            clock.tick(30)
-
-    except KeyboardInterrupt:
-        print("Shutdown")
-    finally:
-        pygame.quit()
+        pygame.display.flip()
+        clock.tick(30)
 
 if __name__ == "__main__":
     main()
