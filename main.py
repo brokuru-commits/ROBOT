@@ -4,7 +4,7 @@ from datetime import datetime
 import pygame
 
 # --- KONFIGURATION ---
-WIDTH, HEIGHT = 480, 320
+WIDTH, HEIGHT = 640, 480
 COLOR_BG       = (0, 5, 0)
 COLOR_TOXIC    = (0, 255, 60)
 COLOR_SCANLINE = (0, 15, 0)
