@@ -6,17 +6,18 @@ from datetime import datetime
 import pygame
 
 # =========================
-# TOUCH & DISPLAY FIX
+# CONFIG (TOUCH & DISPLAY)
 # =========================
 os.environ["SDL_VIDEODRIVER"] = "x11"
 os.environ["SDL_VIDEO_WINDOW_POS"] = "0,0"
 
 W, H = 480, 320
 FPS = 30
+VERSION = "V 2.7"
 
 # Farben
 FALLOUT_GREEN = (50, 255, 50)
-FALLOUT_DIM   = (10, 80, 10)
+FALLOUT_DIM   = (10, 80, 10) # Das dunkle Grün
 BLACK         = (0, 0, 0)
 WHITE         = (255, 255, 255)
 ALERT_RED     = (255, 50, 50)
@@ -41,9 +42,10 @@ PLAN = [
     (16, 0, 17, 0, "FEIERABEND")
 ]
 
+EMOJIS = ["( ^_^)","( o_o)","( O_O)","( -_-)","( ^.^)", "( >_<)", "(⌐■_■)"]
+
 def get_temp_c():
     try:
-        # Wir lesen nur, wenn die Datei existiert, ohne zu blockieren
         with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
             return int(f.read()) / 1000.0
     except: return 0.0
@@ -65,7 +67,6 @@ def fmt_time(sec):
     return f"{m:02d}:{s:02d}"
 
 def safe_update():
-    # Update mit hartem Timeout, damit nichts einfriert
     this_file = os.path.abspath(__file__)
     new_file = this_file + ".new"
     url = "https://raw.githubusercontent.com/brokuru-commits/HEUM-tec/main/main.py"
@@ -76,8 +77,7 @@ def safe_update():
         py_compile.compile(new_file, doraise=True)
         os.replace(new_file, this_file)
         return True
-    except:
-        return False
+    except: return False
 
 def main():
     pygame.init()
@@ -87,9 +87,10 @@ def main():
 
     def get_f(s): 
         try: return pygame.font.Font(FONT_PATH, s)
-        except: return pygame.font.SysFont(None, s)
+        except: return pygame.font.SysFont("monospace", s, bold=True)
 
     f_xl = get_f(80); f_l = get_f(35); f_m = get_f(24); f_s = get_f(18)
+    f_emoji = pygame.font.SysFont("monospace", 50, bold=True)
     
     bg_img = None
     if os.path.exists(BG_PATH):
@@ -99,24 +100,24 @@ def main():
     state = "BOOT"
     boot_start = time.time()
     
+    # Emoji Variablen
+    current_emoji = random.choice(EMOJIS)
+    last_emoji_change = time.time()
+
     btn_calc = pygame.Rect(40, 240, 180, 60)
     btn_upd  = pygame.Rect(260, 240, 180, 60)
     btn_home = pygame.Rect(380, 10, 90, 40)
 
     while True:
-        # WICHTIG: Die Uhr darf nicht hängen bleiben
         dt = clock.tick(FPS) 
         click_pos = None
         
         for e in pygame.event.get():
-            if e.type == pygame.QUIT: 
-                pygame.quit(); sys.exit()
-            if e.type == pygame.MOUSEBUTTONDOWN:
-                click_pos = e.pos
-            if e.type == pygame.FINGERDOWN:
-                click_pos = (int(e.x * W), int(e.y * H))
+            if e.type == pygame.QUIT: pygame.quit(); sys.exit()
+            if e.type == pygame.MOUSEBUTTONDOWN: click_pos = e.pos
+            if e.type == pygame.FINGERDOWN: click_pos = (int(e.x * W), int(e.y * H))
 
-        # --- RENDERING ---
+        # Render Logic
         if state == "BOOT":
             screen.fill(BLACK)
             elapsed = time.time() - boot_start
@@ -130,18 +131,31 @@ def main():
             else: screen.fill(BLACK)
 
             now = datetime.now()
+            # Uhrzeit & Version
             screen.blit(f_xl.render(now.strftime("%H:%M:%S"), True, FALLOUT_GREEN), (20, 10))
-            screen.blit(f_m.render(now.strftime("%d.%m.%Y"), True, FALLOUT_GREEN), (25, 90))
+            screen.blit(f_s.render(VERSION, True, FALLOUT_DIM), (20, 80))
+            screen.blit(f_m.render(now.strftime("%d.%m.%Y"), True, FALLOUT_GREEN), (315, 80))
             
+            # Emoji Animation
+            if time.time() - last_emoji_change > 3.0: # Alle 3 Sek wechseln
+                current_emoji = random.choice(EMOJIS)
+                last_emoji_change = time.time()
+            
+            emoji_surf = f_emoji.render(current_emoji, True, FALLOUT_GREEN)
+            screen.blit(emoji_surf, (W//2 - emoji_surf.get_width()//2, 90))
+            
+            # Stundenplan
             label, timespan, prog, remain = get_status_data()
             if label != "FREIZEIT":
                 col = BLUE_NEON if "PAUSE" in label else FALLOUT_GREEN
-                pygame.draw.rect(screen, FALLOUT_DIM, (30, 140, 420, 45))
-                pygame.draw.rect(screen, col, (30, 140, int(420 * prog), 45))
-                screen.blit(f_m.render(f"{label} ({timespan})", True, WHITE), (40, 148))
-                screen.blit(f_m.render(f"- {fmt_time(remain)}", True, WHITE), (350, 148))
+                pygame.draw.rect(screen, FALLOUT_DIM, (30, 145, 420, 45)) # Hintergrund des Balkens
+                pygame.draw.rect(screen, col, (30, 145, int(420 * prog), 45)) # Fortschritt
+                
+                # Schrift auf dem Balken jetzt in DUNKELGRÜN (FALLOUT_DIM)
+                screen.blit(f_m.render(f"{label} ({timespan})", True, FALLOUT_DIM), (40, 153))
+                screen.blit(f_m.render(f"- {fmt_time(remain)}", True, FALLOUT_DIM), (350, 153))
             else:
-                screen.blit(f_l.render("FREIZEIT", True, BLUE_NEON), (30, 140))
+                screen.blit(f_l.render("FREIZEIT", True, BLUE_NEON), (W//2 - 60, 145))
 
             # Buttons
             pygame.draw.rect(screen, FALLOUT_DIM, btn_calc); pygame.draw.rect(screen, FALLOUT_GREEN, btn_calc, 2)
@@ -158,7 +172,6 @@ def main():
             screen.fill((40, 0, 0))
             txt = f_l.render("JETZT UPDATEN?", True, WHITE)
             screen.blit(txt, (W//2 - txt.get_width()//2, 80))
-            
             btn_yes = pygame.Rect(60, 180, 160, 70); btn_no = pygame.Rect(260, 180, 160, 70)
             pygame.draw.rect(screen, FALLOUT_GREEN, btn_yes); screen.blit(f_m.render("JA", True, BLACK), (125, 202))
             pygame.draw.rect(screen, ALERT_RED, btn_no); screen.blit(f_m.render("NEIN", True, BLACK), (310, 202))
@@ -166,8 +179,7 @@ def main():
             if click_pos:
                 if btn_no.collidepoint(click_pos): state = "HOME"
                 elif btn_yes.collidepoint(click_pos):
-                    screen.fill(BLACK)
-                    screen.blit(f_m.render("LADE...", True, FALLOUT_GREEN), (200, 150))
+                    screen.fill(BLACK); screen.blit(f_m.render("LADE...", True, FALLOUT_GREEN), (200, 150))
                     pygame.display.flip()
                     if safe_update(): sys.exit()
                     else: state = "HOME"
