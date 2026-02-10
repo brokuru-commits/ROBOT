@@ -9,143 +9,156 @@ os.environ["DISPLAY"] = ":0"
 
 # --- KONFIGURATION ---
 WIDTH, HEIGHT = 640, 480
-COLOR_BG       = (0, 5, 0)
 COLOR_TOXIC    = (0, 255, 60)
-COLOR_ALARM    = (255, 50, 0) # Rot fuer Alarm
-COLOR_SCANLINE = (0, 20, 0)
+COLOR_SCANLINE = (0, 15, 0)
+COLOR_WHITE    = (255, 255, 255)
 
 BASE_DIR   = "/home/bot/robot/ui"
-EMOTES_DIR = os.path.join(BASE_DIR, "assets", "emotes")
-TXT_FILE   = os.path.join(BASE_DIR, "assets", "emotions.txt")
+ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+EMOTES_DIR = os.path.join(ASSETS_DIR, "emotes")
+BG_FILE    = os.path.join(ASSETS_DIR, "bg.png")
+TXT_FILE   = os.path.join(ASSETS_DIR, "emotions.txt")
 
-# --- LOGIK-WERTE ---
-STATE_HOME  = "HOME"
-STATE_EMOTE = "EMOTE"
-STATE_ALARM = "ALARM"
-
-# Beispiel-Stundenplan (Anpassen!)
-LESSONS = [
-    ("08:00", "09:30"), ("09:45", "11:15"), ("11:30", "13:00")
-]
+# --- ZUSTAENDE ---
+STATE_HOME = "HOME"
+STATE_EVENT = "EVENT"
 
 def load_quotes():
-    quotes = {}
+    q = {}
     if os.path.exists(TXT_FILE):
         try:
             with open(TXT_FILE, "r", encoding="utf-8") as f:
                 for line in f:
                     if "|" in line:
                         idx, text = line.split("|", 1)
-                        quotes.setdefault(idx.strip(), []).append(text.strip())
+                        q.setdefault(idx.strip(), []).append(text.strip())
         except: pass
-    return quotes
-
-def get_lesson_progress():
-    now = datetime.now().strftime("%H:%M")
-    for start, end in LESSONS:
-        if start <= now <= end:
-            return True, f"UNTERRICHT BIS {end}"
-    return False, "PAUSE / FREIZEIT"
+    return q
 
 def main():
     pygame.init()
-    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.NOFRAME)
+    # Fullscreen-Modus
+    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN | pygame.NOFRAME)
     pygame.mouse.set_visible(False)
     clock = pygame.time.Clock()
 
-    # Fonts
-    font_big  = pygame.font.SysFont("monospace", 100, bold=True)
-    font_med  = pygame.font.SysFont("monospace", 35, bold=True)
-    font_small = pygame.font.SysFont("monospace", 22, bold=True)
+    # Fonts (Fallout-Style: Monospace & Bold)
+    try:
+        font_huge  = pygame.font.SysFont("monospace", 120, bold=True)
+        font_med   = pygame.font.SysFont("monospace", 45, bold=True)
+        font_small = pygame.font.SysFont("monospace", 24, bold=True)
+    except:
+        font_huge = font_med = font_small = pygame.font.Font(None, 30)
+
+    # Hintergrund laden
+    bg_img = None
+    if os.path.exists(BG_FILE):
+        bg_img = pygame.image.load(BG_FILE).convert()
+        bg_img = pygame.transform.scale(bg_img, (WIDTH, HEIGHT))
 
     quotes_data = load_quotes()
     state = STATE_HOME
-    state_timer = 0
-    next_emote_time = time.time() + random.randint(120, 300) # Alle 2-5 Min
+    event_timer = 0
+    next_event_time = time.time() + 30
     
+    scan_bar_x = 0
+    current_quote = "INITIALIZING..."
     current_id = "1"
-    current_quote = "SYSTEM READY"
-    pulse = 0
-    pulse_dir = 1
+    
+    # ASCII Gesichter
+    ascii_faces = ["(o_o)", "[O.O]", "(^.^)", "<o.o>", "( -_-)", "[(X)]"]
 
     while True:
         now_ts = time.time()
+        dt = datetime.now()
+        
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE: return
 
-        # --- ZUSTANDS-MASCHINE ---
-        if state == STATE_HOME:
-            if now_ts > next_emote_time:
-                state = STATE_EMOTE
-                state_timer = now_ts + 7
+        # --- EVENT LOGIK ---
+        if state == STATE_HOME and now_ts > next_event_time:
+            state = STATE_EVENT
+            event_type = random.choice(["EMOTE", "NUKE", "GLITCH"])
+            event_timer = now_ts + 7
+            
+            if event_type == "EMOTE":
                 current_id = str(random.randint(1, 4))
-                current_quote = random.choice(quotes_data.get(current_id, ["HELLO"]))
-            elif random.random() < 0.001: # Zufalls-Alarm
-                state = STATE_ALARM
-                state_timer = now_ts + 4
-                current_quote = "NUCLEAR ALERT!"
+                current_quote = random.choice(quotes_data.get(current_id, ["HELLO WORLD"]))
+            elif event_type == "NUKE":
+                current_quote = "!!! CRITICAL RADIATION !!!"
+            else:
+                current_quote = "SYSTEM REBOOT..."
 
-        elif state in [STATE_EMOTE, STATE_ALARM]:
-            if now_ts > state_timer:
-                state = STATE_HOME
-                next_emote_time = now_ts + random.randint(180, 400)
+        if state == STATE_EVENT and now_ts > event_timer:
+            state = STATE_HOME
+            next_event_time = now_ts + random.randint(45, 120)
 
         # --- ZEICHNEN ---
-        screen.fill(COLOR_BG)
-        dt = datetime.now()
-        
-        # Pulsieren fuer Icons
-        pulse += 2 * pulse_dir
-        if pulse >= 100 or pulse <= 0: pulse_dir *= -1
+        # 1. Background
+        if bg_img:
+            screen.blit(bg_img, (0, 0))
+        else:
+            screen.fill((0, 20, 0))
 
         if state == STATE_HOME:
-            # 1. Uhrzeit & Datum
-            t_surf = font_big.render(dt.strftime("%H:%M"), True, COLOR_TOXIC)
-            screen.blit(t_surf, (WIDTH//2 - t_surf.get_width()//2, 50))
+            # Uhrzeit & Datum (Linksbündig)
+            time_str = dt.strftime("%H:%M")
+            date_str = dt.strftime("%d.%m.%y")
             
-            d_str = dt.strftime("%d.%m.%Y")
-            d_surf = font_med.render(d_str, True, COLOR_TOXIC)
-            screen.blit(d_surf, (WIDTH//2 - d_surf.get_width()//2, 160))
-
-            # 2. Unterrichts-Balken
-            in_lesson, lesson_text = get_lesson_progress()
-            pygame.draw.rect(screen, (0, 40, 0), (50, 240, 540, 50)) # Hintergrund
-            if in_lesson:
-                pygame.draw.rect(screen, COLOR_TOXIC, (55, 245, 530, 40), 2)
-            l_surf = font_small.render(lesson_text, True, COLOR_TOXIC)
-            screen.blit(l_surf, (WIDTH//2 - l_surf.get_width()//2, 252))
-
-            # 3. Pulsierende Icons (Rechts Oben)
-            for i in range(3):
-                alpha_color = (0, pulse + 155, 0)
-                pygame.draw.circle(screen, alpha_color, (550 + (i*25), 40), 8, 2)
+            t_surf = font_huge.render(time_str, True, COLOR_TOXIC)
+            d_surf = font_med.render(date_str, True, COLOR_TOXIC)
             
-            # 4. Spruch
-            q_surf = font_small.render(current_quote.upper(), True, COLOR_TOXIC)
-            screen.blit(q_surf, (WIDTH//2 - q_surf.get_width()//2, 350))
+            screen.blit(t_surf, (40, 40))
+            screen.blit(d_surf, (45, 140))
 
-        elif state == STATE_EMOTE:
-            # Beetle erscheint mit Scan-Effekt
-            img_path = os.path.join(EMOTES_DIR, f"{current_id}.png")
-            if os.path.exists(img_path):
-                img = pygame.image.load(img_path).convert()
-                img = pygame.transform.scale(img, (350, 350))
-                screen.blit(img, (WIDTH//2 - 175, 40))
-            q_surf = font_med.render(current_quote.upper(), True, COLOR_TOXIC)
-            screen.blit(q_surf, (WIDTH//2 - q_surf.get_width()//2, 410))
+            # ASCII Emote & Spruch
+            face = random.choice(ascii_faces) if dt.second % 10 == 0 else ascii_faces[0]
+            f_surf = font_med.render(face, True, COLOR_TOXIC)
+            screen.blit(f_surf, (40, 220))
+            
+            q_surf = font_small.render(current_quote[:35].upper(), True, COLOR_TOXIC)
+            screen.blit(q_surf, (40, 280))
 
-        elif state == STATE_ALARM:
-            # Nuklearer Wackler (Bunt & Shake)
-            offset_x = random.randint(-20, 20)
-            offset_y = random.randint(-20, 20)
-            rnd_color = (random.randint(100, 255), random.randint(0, 50), 0)
-            screen.fill(rnd_color)
-            a_surf = font_big.render("WARNING", True, (255, 255, 255))
-            screen.blit(a_surf, (WIDTH//2 - a_surf.get_width()//2 + offset_x, 150 + offset_y))
+            # Icons Oben Rechts (Pulsierend)
+            p = abs(int(math.sin(time.time() * 3) * 100)) + 155 if 'math' in sys.modules else 255
+            import math # Sicherstellen dass math da ist
+            pygame.draw.rect(screen, (0, p, 0), (550, 30, 20, 20), 2)
+            pygame.draw.rect(screen, (0, p, 0), (580, 30, 20, 20))
 
-        # 5. Dezente Scanline unten
-        pygame.draw.line(screen, COLOR_TOXIC, (0, HEIGHT-10), (WIDTH, HEIGHT-10), 1)
-        # Globales Flimmern
+            # Unterrichts-Balken (Ganz unten)
+            pygame.draw.rect(screen, (0, 40, 0), (0, HEIGHT-60, WIDTH, 60))
+            pygame.draw.line(screen, COLOR_TOXIC, (0, HEIGHT-60), (WIDTH, HEIGHT-60), 2)
+            u_str = "STATUS: LERNEINHEIT AKTIV" if 8 <= dt.hour < 14 else "STATUS: FREIZEIT / ÖDLAND"
+            u_surf = font_small.render(u_str, True, COLOR_TOXIC)
+            screen.blit(u_surf, (WIDTH//2 - u_surf.get_width()//2, HEIGHT-40))
+
+        elif state == STATE_EVENT:
+            # Zufallseffekte: Bunt, Wackeln, Bilder
+            off_x = random.randint(-10, 10)
+            off_y = random.randint(-10, 10)
+            
+            if "CRITICAL" in current_quote: # Nuke Event
+                screen.fill((random.randint(150, 255), 0, 0))
+                msg = font_huge.render("WARNING", True, COLOR_WHITE)
+                screen.blit(msg, (WIDTH//2 - msg.get_width()//2 + off_x, 150 + off_y))
+            else: # Emote Event
+                img_p = os.path.join(EMOTES_DIR, f"{current_id}.png")
+                if os.path.exists(img_p):
+                    img = pygame.image.load(img_p).convert()
+                    img = pygame.transform.scale(img, (320, 320))
+                    screen.blit(img, (WIDTH//2 - 160 + off_x, 60 + off_y))
+            
+            q_surf = font_med.render(current_quote.upper(), True, COLOR_WHITE)
+            screen.blit(q_surf, (WIDTH//2 - q_surf.get_width()//2, 400))
+
+        # --- OVERLAYS (Immer sichtbar) ---
+        # Vertikale Scan-Bar am Rand
+        scan_bar_x = (scan_bar_x + 4) % WIDTH
+        s_rect = pygame.Surface((5, HEIGHT), pygame.SRCALPHA)
+        s_rect.fill((0, 255, 60, 40))
+        screen.blit(s_rect, (scan_bar_x, 0))
+
+        # Scanlines Gitter
         for y in range(0, HEIGHT, 4):
             pygame.draw.line(screen, COLOR_SCANLINE, (0, y), (WIDTH, y))
 
