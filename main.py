@@ -157,7 +157,7 @@ def calc_grade_decimal(p_ist, p_max, school_type):
 def safe_update():
     # ----------------------------------------------------
     # HIER DEINE GITHUB URL EINTRAGEN !!!
-    url = "https://github.com/brokuru-commits/HEUM-tec/blob/main/main.py"
+    url = "https://raw.githubusercontent.com/brokuru-commits/HEUM-tec/main/main.py"
     # ----------------------------------------------------
     try:
         req = urllib.request.urlopen(url, timeout=10)
