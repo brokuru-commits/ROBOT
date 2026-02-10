@@ -13,7 +13,7 @@ os.environ["SDL_VIDEO_WINDOW_POS"] = "0,0"
 
 W, H = 480, 320
 FPS = 30
-VERSION = "V 3.6 COMPACT"
+VERSION = "V 3.7 DECIMAL"
 
 # =========================
 # PFADE
@@ -46,9 +46,7 @@ EMOJIS = [
 
 DEFAULT_QUOTES = ["SYSTEMS OPTIMAL.", "LERNEN...", "WARTE AUF EINGABE", "RAD-LEVEL NORMAL."]
 
-SCALE_GYM = [95, 80, 65, 50, 25, 0]
-SCALE_RS  = [90, 75, 60, 45, 20, 0]
-
+# --- STUNDENPLAN ---
 PLAN = [
     (7, 30, 8, 0, "PAUSE"),
     (8, 0, 8, 45, "1. STUNDE"),
@@ -96,13 +94,37 @@ def get_status_data():
             return label, time_str, (cur-start)/total, end-cur
     return "FREIZEIT", "", 0.0, 0
 
-def calc_grade(p_ist, p_max, school_type):
+def calc_grade_decimal(p_ist, p_max, school_type):
+    """Berechnet die Note als Dezimalzahl (z.B. 2,4)."""
     if p_max <= 0: return "-"
-    perc = (p_ist / p_max) * 100
-    scale = SCALE_GYM if school_type == "GYM" else SCALE_RS
-    for i, threshold in enumerate(scale):
-        if perc >= threshold: return str(i + 1)
-    return "6"
+    
+    percent = p_ist / p_max
+    
+    # --- GRENZWERTE ---
+    # Wo liegt die Note 4.0?
+    # GYM: bei 50% (0.50)
+    # RS:  bei 45% (0.45)
+    limit_4 = 0.50 if school_type == "GYM" else 0.45
+
+    grade = 6.0
+    
+    if percent == 1.0:
+        grade = 1.0
+    elif percent > limit_4:
+        # Bereich Note 1 bis 4 (Oberhalb der Grenze)
+        # Formel: Linear von 1.0 bis 4.0
+        grade = 1 + 3 * ((1 - percent) / (1 - limit_4))
+    else:
+        # Bereich Note 4 bis 6 (Unterhalb der Grenze)
+        # Formel: Linear von 4.0 bis 6.0
+        grade = 4 + 2 * ((limit_4 - percent) / limit_4)
+        
+    # Begrenzen auf 1.0 bis 6.0
+    if grade < 1: grade = 1.0
+    if grade > 6: grade = 6.0
+    
+    # Formatieren: Eine Nachkommastelle, Punkt zu Komma
+    return f"{grade:.1f}".replace('.', ',')
 
 def safe_update():
     # ----------------------------------------------------
@@ -137,7 +159,7 @@ def draw_text_safe(screen, font, text, color, pos, align="center"):
 # =========================
 def main():
     pygame.init()
-    # HIER IST JETZT VOLLBILD EINGESTELLT
+    # Vollbild Modus
     screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
     pygame.mouse.set_visible(False)
     clock = pygame.time.Clock()
@@ -146,7 +168,6 @@ def main():
         try: return pygame.font.Font(FONT_PATH, s)
         except: return pygame.font.SysFont("monospace", s, bold=True)
 
-    # Schriftgrößen angepasst (etwas kleiner für Buttons)
     f_xl = get_f(80); f_l = get_f(35); f_m = get_f(24); f_s = get_f(20); f_xs = get_f(14)
     
     bg_img = None
@@ -168,29 +189,19 @@ def main():
     val_ist = ""
     val_max = ""
 
-    # --- BUTTON LAYOUT (KOMPAKTER) ---
+    # Buttons Setup
     num_btns = []
-    # Kleineres Numpad: 50x40 Pixel, Abstand 55/45
-    # Startet etwas weiter rechts (x=300)
     for i in range(1, 10):
         x = 300 + ((i-1)%3)*55
         y = 75 + ((i-1)//3)*45
         num_btns.append((pygame.Rect(x, y, 50, 40), str(i)))
     
-    # 0 Taste
     num_btns.append((pygame.Rect(300, 210, 50, 40), "0"))
-    
-    # DEL Taste (Neben der 0)
     btn_del = pygame.Rect(355, 210, 105, 40)
-    
-    # Switch (Links unten)
     btn_switch = pygame.Rect(20, 210, 200, 40)
     
-    # Home Screen Buttons (Kleiner)
     btn_calc = pygame.Rect(50, 250, 160, 45)
     btn_upd  = pygame.Rect(270, 250, 160, 45)
-    
-    # Home Button (Calc Screen)
     btn_home = pygame.Rect(390, 10, 80, 35)
 
     while True:
@@ -231,7 +242,7 @@ def main():
             draw_text_safe(screen, f_l, curr_emoji, MAIN_COL, (W//2, 115), "center")
 
             label, timespan, prog, remain = get_status_data()
-            pygame.draw.rect(screen, DIM_COL, (30, 175, 420, 50)) # Balken etwas flacher
+            pygame.draw.rect(screen, DIM_COL, (30, 175, 420, 50))
             pygame.draw.rect(screen, MAIN_COL, (30, 175, int(420 * prog), 50))
             
             draw_text_safe(screen, f_s, label, BLACK, (40, 188), "topleft")
@@ -240,7 +251,6 @@ def main():
 
             pygame.draw.line(screen, MAIN_COL, (scan_line_x, 315), (scan_line_x+40, 315), 2)
 
-            # Home Buttons
             pygame.draw.rect(screen, DIM_COL, btn_calc); pygame.draw.rect(screen, MAIN_COL, btn_calc, 2)
             draw_text_safe(screen, f_s, "RECHNER", MAIN_COL, btn_calc.center, "center")
             
@@ -259,7 +269,6 @@ def main():
             col_i = MAIN_COL if input_focus=="IST" else DIM_COL
             col_m = MAIN_COL if input_focus=="MAX" else DIM_COL
             
-            # Eingabefelder etwas flacher (Höhe 40 statt 50)
             r_i = pygame.Rect(20, 65, 230, 40); pygame.draw.rect(screen, col_i, r_i, 2)
             r_m = pygame.Rect(20, 135, 230, 40); pygame.draw.rect(screen, col_m, r_m, 2)
             
@@ -269,9 +278,17 @@ def main():
             draw_text_safe(screen, f_l, val_max, WHITE, (30, 138), "topleft")
 
             try:
-                note = calc_grade(float(val_ist or 0), float(val_max or 0), school_mode)
-                c_res = MAIN_COL if note in "123" else (255,50,50)
-                draw_text_safe(screen, f_xl, note, c_res, (100, 160), "topleft") # Note kleiner? Nein, Note muss groß sein!
+                # Hier rufen wir die NEUE Dezimal-Funktion auf
+                note = calc_grade_decimal(float(val_ist or 0), float(val_max or 0), school_mode)
+                
+                # Farbe Rot, wenn Note schlechter als 4,0
+                is_bad = False
+                try: 
+                    if float(note.replace(',', '.')) > 4.0: is_bad = True
+                except: pass
+                
+                c_res = (255, 50, 50) if is_bad else MAIN_COL
+                draw_text_safe(screen, f_xl, note, c_res, (100, 160), "topleft")
             except: pass
 
             for rect, val in num_btns:
