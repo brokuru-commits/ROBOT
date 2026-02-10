@@ -17,9 +17,15 @@ import pygame
 # =========================
 # Nicht hart nötig, aber wenn du damit stabil bist, lass es drin:
 os.environ.setdefault("SDL_VIDEODRIVER", "x11")
+os.environ["SDL_VIDEODRIVER"] = "x11"
+
+# DIESE ZEILEN AKTIVIEREN DEN TOUCH:
+os.environ["SDL_MOUSEDRV"] = "TSLIB"
+# Probiere erst event0. Wenn das nicht geht, ändere es auf event1
+os.environ["SDL_MOUSEDEV"] = "/dev/input/event0" 
 
 W, H = 480, 320
-FPS = 25  # reicht völlig für UI
+FPS = 25
 
 # Farben (Fallout-ish)
 FALLOUT_GREEN = (50, 255, 50)
