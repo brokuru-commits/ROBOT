@@ -5,7 +5,6 @@ import os
 import sys
 import time
 import random
-import math as m_lib  # Umbenannt, um Konflikte zu vermeiden
 import pygame
 from datetime import datetime
 
@@ -65,7 +64,7 @@ def main():
         except: pass
 
     quotes_data = load_quotes()
-    state = STATE_HOME
+    state = "HOME"
     event_timer = 0
     next_event_time = time.time() + 30
     
@@ -76,6 +75,10 @@ def main():
     ascii_faces = ["(o_o)", "[O.O]", "(^.^)", "<o.o>", "( -_-)", "[(X)]"]
     last_face_change = 0
     active_face = ascii_faces[0]
+    
+    # Puls-Variablen ohne math
+    pulse_val = 155
+    pulse_dir = 5
 
     while True:
         now_ts = time.time()
@@ -86,8 +89,9 @@ def main():
                 pygame.quit()
                 sys.exit()
 
-        if state == STATE_HOME and now_ts > next_event_time:
-            state = STATE_EVENT
+        # --- EVENT LOGIK ---
+        if state == "HOME" and now_ts > next_event_time:
+            state = "EVENT"
             event_type = random.choice(["EMOTE", "NUKE", "GLITCH"])
             event_timer = now_ts + 7
             
@@ -99,8 +103,8 @@ def main():
             else:
                 current_quote = "RECALIBRATING CORE..."
 
-        if state == STATE_EVENT and now_ts > event_timer:
-            state = STATE_HOME
+        if state == "EVENT" and now_ts > event_timer:
+            state = "HOME"
             next_event_time = now_ts + random.randint(45, 120)
 
         # Rendering
@@ -109,14 +113,14 @@ def main():
         else:
             screen.fill(COLOR_DARK)
 
-        if state == STATE_HOME:
-            # Uhr & Datum
+        if state == "HOME":
+            # Uhr & Datum (Linksbündig)
             t_surf = font_huge.render(dt.strftime("%H:%M"), True, COLOR_TOXIC)
             d_surf = font_med.render(dt.strftime("%A").upper(), True, COLOR_TOXIC)
             screen.blit(t_surf, (30, 40))
             screen.blit(d_surf, (35, 145))
 
-            # ASCII
+            # ASCII Animation
             if now_ts - last_face_change > 5:
                 active_face = random.choice(ascii_faces)
                 last_face_change = now_ts
@@ -127,8 +131,10 @@ def main():
             q_surf = font_small.render(current_quote.upper(), True, COLOR_TOXIC)
             screen.blit(q_surf, (35, 300))
 
-            # Pulsierende Icons (Hier wird m_lib genutzt)
-            pulse_val = abs(int(m_lib.sin(time.time() * 3) * 100)) + 155 
+            # Pulsierende Icons (Manuelle Berechnung)
+            pulse_val += pulse_dir
+            if pulse_val >= 250 or pulse_val <= 150:
+                pulse_dir *= -1
             pygame.draw.rect(screen, (0, pulse_val, 0), (540, 30, 25, 25), 2)
             pygame.draw.rect(screen, (0, pulse_val, 0), (580, 30, 25, 25))
 
@@ -139,7 +145,7 @@ def main():
             u_surf = font_small.render(status_text, True, COLOR_TOXIC)
             screen.blit(u_surf, (WIDTH//2 - u_surf.get_width()//2, HEIGHT-45))
 
-        elif state == STATE_EVENT:
+        elif state == "EVENT":
             off_x, off_y = random.randint(-15, 15), random.randint(-15, 15)
             if "RADIATION" in current_quote:
                 screen.fill((random.randint(150, 255), 0, 0))
@@ -148,9 +154,11 @@ def main():
             else:
                 img_p = os.path.join(EMOTES_DIR, f"{current_id}.png")
                 if os.path.exists(img_p):
-                    img = pygame.image.load(img_p).convert()
-                    img = pygame.transform.scale(img, (300, 300))
-                    screen.blit(img, (WIDTH//2 - 150 + off_x, 60 + off_y))
+                    try:
+                        img = pygame.image.load(img_p).convert()
+                        img = pygame.transform.scale(img, (300, 300))
+                        screen.blit(img, (WIDTH//2 - 150 + off_x, 60 + off_y))
+                    except: pass
             ev_surf = font_med.render(current_quote.upper(), True, COLOR_WHITE)
             screen.blit(ev_surf, (WIDTH//2 - ev_surf.get_width()//2, 400))
 
@@ -164,9 +172,6 @@ def main():
 
         pygame.display.flip()
         clock.tick(30)
-
-# Zustands-Definitionen ausserhalb fuer Globalen Zugriff
-STATE_HOME, STATE_EVENT = "HOME", "EVENT"
 
 if __name__ == "__main__":
     main()
