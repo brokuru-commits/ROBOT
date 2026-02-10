@@ -16,13 +16,56 @@ WIDTH, HEIGHT = 640, 480
 COLOR_TOXIC    = (0, 255, 60)
 COLOR_SCANLINE = (0, 15, 0)
 COLOR_WHITE    = (255, 255, 255)
-COLOR_DARK     = (0, 20, 0)
+COLOR_DARK     = (0, 15, 0)
 
 BASE_DIR   = "/home/bot/robot/ui"
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 EMOTES_DIR = os.path.join(ASSETS_DIR, "emotes")
 BG_FILE    = os.path.join(ASSETS_DIR, "bg.png")
 TXT_FILE   = os.path.join(ASSETS_DIR, "emotions.txt")
+
+# --- STUNDENPLAN DATEN ---
+# Format: (Startzeit, Endzeit, Name/Typ)
+SCHEDULE = [
+    ("07:30", "08:00", "VORBEREITUNG"),
+    ("08:00", "08:45", "1. STUNDE"),
+    ("08:45", "08:50", "PAUSE (5M)"),
+    ("08:50", "09:35", "2. STUNDE"),
+    ("09:35", "09:55", "GR. PAUSE (20M)"),
+    ("09:55", "10:40", "3. STUNDE"),
+    ("10:40", "10:45", "PAUSE (5M)"),
+    ("10:45", "11:30", "4. STUNDE"),
+    ("11:30", "11:50", "GR. PAUSE (20M)"),
+    ("11:50", "12:35", "5. STUNDE"),
+    ("12:35", "12:40", "PAUSE (5M)"),
+    ("12:40", "13:25", "6. STUNDE"),
+    ("13:25", "13:35", "PAUSE (10M)"),
+    ("13:35", "14:20", "7. STUNDE"),
+    ("14:20", "14:25", "PAUSE (5M)"),
+    ("14:25", "15:10", "8. STUNDE"),
+    ("15:10", "15:15", "PAUSE (5M)"),
+    ("15:15", "16:00", "9. STUNDE")
+]
+
+def get_current_status():
+    now = datetime.now()
+    now_str = now.strftime("%H:%M")
+    
+    for start, end, label in SCHEDULE:
+        if start <= now_str < end:
+            # Berechnung der verbleibenden Minuten
+            end_time = datetime.strptime(end, "%H:%M").replace(year=now.year, month=now.month, day=now.day)
+            remaining = int((end_time - now).total_seconds() / 60)
+            
+            # Fortschritt berechnen (0.0 bis 1.0)
+            start_time = datetime.strptime(start, "%H:%M").replace(year=now.year, month=now.month, day=now.day)
+            total_duration = (end_time - start_time).total_seconds()
+            elapsed = (now - start_time).total_seconds()
+            progress = elapsed / total_duration if total_duration > 0 else 0
+            
+            return label, remaining, progress
+            
+    return "FEIERABEND", 0, 1.0
 
 def load_quotes():
     q = {}
@@ -46,15 +89,9 @@ def main():
     pygame.mouse.set_visible(False)
     clock = pygame.time.Clock()
 
-    # Fonts
-    try:
-        font_huge  = pygame.font.SysFont("monospace", 110, bold=True)
-        font_med   = pygame.font.SysFont("monospace", 45, bold=True)
-        font_small = pygame.font.SysFont("monospace", 22, bold=True)
-    except:
-        font_huge = pygame.font.Font(None, 110)
-        font_med = pygame.font.Font(None, 45)
-        font_small = pygame.font.Font(None, 22)
+    font_huge  = pygame.font.SysFont("monospace", 110, bold=True)
+    font_med   = pygame.font.SysFont("monospace", 40, bold=True)
+    font_small = pygame.font.SysFont("monospace", 18, bold=True)
 
     bg_img = None
     if os.path.exists(BG_FILE):
@@ -68,17 +105,14 @@ def main():
     event_timer = 0
     next_event_time = time.time() + 30
     
-    scan_bar_x = 0
-    current_quote = "SYSTEM READY"
+    bottom_scan_x = 0
+    current_quote = "SYSTEM BEREIT"
     current_id = "1"
-    
-    ascii_faces = ["(o_o)", "[O.O]", "(^.^)", "<o.o>", "( -_-)", "[(X)]"]
+    active_face = "(o_o)"
     last_face_change = 0
-    active_face = ascii_faces[0]
+    ascii_faces = ["(o_o)", "[O.O]", "(^.^)", "<o.o>", "( -_-)", "[(X)]"]
     
-    # Puls-Variablen ohne math
-    pulse_val = 155
-    pulse_dir = 5
+    pulse_val, pulse_dir = 155, 4
 
     while True:
         now_ts = time.time()
@@ -86,87 +120,80 @@ def main():
         
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE: 
-                pygame.quit()
-                sys.exit()
+                pygame.quit(); sys.exit()
 
         # --- EVENT LOGIK ---
         if state == "HOME" and now_ts > next_event_time:
             state = "EVENT"
-            event_type = random.choice(["EMOTE", "NUKE", "GLITCH"])
-            event_timer = now_ts + 7
-            
+            event_type = random.choice(["EMOTE", "WARNUNG", "FEHLER"])
+            event_timer = now_ts + 5
             if event_type == "EMOTE":
                 current_id = str(random.randint(1, 4))
-                current_quote = random.choice(quotes_data.get(current_id, ["HELLO VAULT DWELLER"]))
-            elif event_type == "NUKE":
-                current_quote = "!!! RADIATION LEAK !!!"
-            else:
-                current_quote = "RECALIBRATING CORE..."
+                current_quote = random.choice(quotes_data.get(current_id, ["SYSTEM AKTIV"]))
+            elif event_type == "WARNUNG": current_quote = "!!! RAD-ALARM !!!"
+            else: current_quote = "REKALIBRIERE KERN..."
 
         if state == "EVENT" and now_ts > event_timer:
             state = "HOME"
             next_event_time = now_ts + random.randint(45, 120)
 
-        # Rendering
-        if bg_img:
-            screen.blit(bg_img, (0, 0))
-        else:
-            screen.fill(COLOR_DARK)
+        # --- RENDERING ---
+        if bg_img: screen.blit(bg_img, (0, 0))
+        else: screen.fill(COLOR_DARK)
 
         if state == "HOME":
-            # Uhr & Datum (Linksbündig)
-            t_surf = font_huge.render(dt.strftime("%H:%M"), True, COLOR_TOXIC)
-            d_surf = font_med.render(dt.strftime("%A").upper(), True, COLOR_TOXIC)
-            screen.blit(t_surf, (30, 40))
-            screen.blit(d_surf, (35, 145))
+            # Uhr & Datum
+            screen.blit(font_huge.render(dt.strftime("%H:%M"), True, COLOR_TOXIC), (30, 40))
+            
+            # Wochentage auf Deutsch mappen
+            wd_map = {"Monday":"MONTAG", "Tuesday":"DIENSTAG", "Wednesday":"MITTWOCH", "Thursday":"DONNERSTAG", "Friday":"FREITAG", "Saturday":"SAMSTAG", "Sunday":"SONNTAG"}
+            day_str = wd_map.get(dt.strftime("%A"), dt.strftime("%A").upper())
+            screen.blit(font_med.render(f"{day_str}, {dt.strftime('%d.%m.')}", True, COLOR_TOXIC), (35, 145))
 
-            # ASCII Animation
+            # ASCII Gesicht
             if now_ts - last_face_change > 5:
-                active_face = random.choice(ascii_faces)
-                last_face_change = now_ts
-            f_surf = font_med.render(active_face, True, COLOR_TOXIC)
-            screen.blit(f_surf, (35, 230))
+                active_face = random.choice(ascii_faces); last_face_change = now_ts
+            screen.blit(font_med.render(active_face, True, COLOR_TOXIC), (35, 230))
             
             # Spruch
-            q_surf = font_small.render(current_quote.upper(), True, COLOR_TOXIC)
-            screen.blit(q_surf, (35, 300))
+            screen.blit(font_small.render(current_quote.upper(), True, COLOR_TOXIC), (35, 300))
 
-            # Pulsierende Icons (Manuelle Berechnung)
+            # Icons Oben Rechts
             pulse_val += pulse_dir
-            if pulse_val >= 250 or pulse_val <= 150:
-                pulse_dir *= -1
-            pygame.draw.rect(screen, (0, pulse_val, 0), (540, 30, 25, 25), 2)
-            pygame.draw.rect(screen, (0, pulse_val, 0), (580, 30, 25, 25))
+            if pulse_val >= 250 or pulse_val <= 150: pulse_dir *= -1
+            for i, char in enumerate([">", "#", "!"]):
+                screen.blit(font_small.render(f"[{char}]", True, (0, pulse_val, 0)), (520 + (i*40), 30))
 
-            # Unterer Balken
-            pygame.draw.rect(screen, (0, 40, 0), (0, HEIGHT-70, WIDTH, 70))
-            pygame.draw.line(screen, COLOR_TOXIC, (0, HEIGHT-70), (WIDTH, HEIGHT-70), 3)
-            status_text = "STATUS: LERNEINHEIT" if 8 <= dt.hour < 14 else "STATUS: FREIZEIT"
-            u_surf = font_small.render(status_text, True, COLOR_TOXIC)
-            screen.blit(u_surf, (WIDTH//2 - u_surf.get_width()//2, HEIGHT-45))
+            # --- ASCII FORTSCHRITTSBALKEN (STRENG NACH DEINEM PLAN) ---
+            label, rem, prog = get_current_status()
+            bar_len = 30
+            filled = int(prog * bar_len)
+            bar_str = "[" + "|" * filled + " " * (bar_len - filled) + "]"
+            
+            info_str = f"{bar_str} {label}: NOCH {rem} MIN" if label != "FEIERABEND" else f"{bar_str} {label}"
+            b_surf = font_small.render(info_str, True, COLOR_TOXIC)
+            screen.blit(b_surf, (WIDTH//2 - b_surf.get_width()//2, HEIGHT-40))
 
         elif state == "EVENT":
-            off_x, off_y = random.randint(-15, 15), random.randint(-15, 15)
-            if "RADIATION" in current_quote:
-                screen.fill((random.randint(150, 255), 0, 0))
-                msg = font_huge.render("WARNING", True, COLOR_WHITE)
-                screen.blit(msg, (WIDTH//2 - msg.get_width()//2 + off_x, 150 + off_y))
+            if "RAD-ALARM" in current_quote:
+                screen.fill((200, 0, 0))
+                msg = font_huge.render("WARNUNG", True, COLOR_WHITE)
+                screen.blit(msg, (WIDTH//2 - msg.get_width()//2, 150))
             else:
                 img_p = os.path.join(EMOTES_DIR, f"{current_id}.png")
                 if os.path.exists(img_p):
-                    try:
-                        img = pygame.image.load(img_p).convert()
-                        img = pygame.transform.scale(img, (300, 300))
-                        screen.blit(img, (WIDTH//2 - 150 + off_x, 60 + off_y))
-                    except: pass
-            ev_surf = font_med.render(current_quote.upper(), True, COLOR_WHITE)
-            screen.blit(ev_surf, (WIDTH//2 - ev_surf.get_width()//2, 400))
+                    img = pygame.image.load(img_p).convert()
+                    img = pygame.transform.scale(img, (WIDTH, HEIGHT))
+                    screen.blit(img, (0, 0))
+            screen.blit(font_med.render(current_quote.upper(), True, COLOR_WHITE), (WIDTH//2 - 150, 400))
 
-        # Scan-Bar & Scanlines
-        scan_bar_x = (scan_bar_x + 5) % WIDTH
-        s_surf = pygame.Surface((10, HEIGHT), pygame.SRCALPHA)
-        s_surf.fill((0, 255, 60, 30))
-        screen.blit(s_surf, (scan_bar_x, 0))
+        # Untere Scan-Linie (Dünn, Farbe wechselnd)
+        import math
+        bottom_scan_x = (bottom_scan_x + 6) % WIDTH
+        c_val = int(math.sin(now_ts * 2) * 127 + 128)
+        pygame.draw.line(screen, (0, 255, c_val), (bottom_scan_x, HEIGHT-10), (bottom_scan_x + 30, HEIGHT-10), 2)
+
+        # Scanlines Gitter
         for y in range(0, HEIGHT, 4):
             pygame.draw.line(screen, COLOR_SCANLINE, (0, y), (WIDTH, y))
 
