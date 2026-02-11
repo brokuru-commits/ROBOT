@@ -159,6 +159,35 @@ def tint(color, alpha):
     s.fill((color[0], color[1], color[2], alpha))
     screen.blit(s, (0, 0))
 
+def draw_status_icons(t):
+    start_x = W - 140
+    y = 40
+    # 1. WiFi
+    wifi_val = int(140 + 115 * math.sin(t * 4))
+    wifi_col = (0, 180, 255, wifi_val)
+    s_wifi = pygame.Surface((34, 34), pygame.SRCALPHA)
+    for i in range(3):
+        pygame.draw.arc(s_wifi, wifi_col, (5+i*4, 8+i*4, 24-i*8, 24-i*8), math.pi/4, 3*math.pi/4, 2)
+    screen.blit(s_wifi, (start_x, y))
+    # 2. Rad
+    rad_val = int(140 + 115 * math.sin(t * 2))
+    rad_col = (255, 170, 0, rad_val)
+    s_rad = pygame.Surface((34, 34), pygame.SRCALPHA)
+    c = (17, 17)
+    pygame.draw.circle(s_rad, rad_col, c, 4)
+    for i in range(3):
+        ang = i * (2 * math.pi / 3) - (math.pi / 2)
+        p1 = (c[0] + 14 * math.cos(ang - 0.5), c[1] + 14 * math.sin(ang - 0.5))
+        p2 = (c[0] + 14 * math.cos(ang + 0.5), c[1] + 14 * math.sin(ang + 0.5))
+        pygame.draw.polygon(s_rad, rad_col, [c, p1, p2])
+    screen.blit(s_rad, (start_x + 45, y))
+    # 3. Blitz
+    bolt_col = (255, 255, 100, 255) if random.random() > 0.92 else (140, 140, 0, 180)
+    s_bolt = pygame.Surface((34, 34), pygame.SRCALPHA)
+    pts = [(17, 4), (24, 16), (17, 16), (20, 30), (10, 16), (17, 16)]
+    pygame.draw.polygon(s_bolt, bolt_col, pts)
+    screen.blit(s_bolt, (start_x + 90, y))
+
 # ============================================================
 # MAIN LOOP
 # ============================================================
@@ -182,6 +211,7 @@ while True:
         if ei: screen.blit(pygame.transform.scale(ei, (W,H)), (0,0))
     else:
         screen.blit(font_time.render(now.strftime("%H:%M"), True, GREEN), (30, 30))
+        draw_status_icons(t_now)
         wd_names = {"Monday":"MONTAG","Tuesday":"DIENSTAG","Wednesday":"MITTWOCH","Thursday":"DONNERSTAG","Friday":"FREITAG","Saturday":"SAMSTAG","Sunday":"SONNTAG"}
         screen.blit(font_body.render(f"{wd_names.get(now.strftime('%A'),'TAG')}, {now.strftime('%d.%m.')}", True, GREEN_SOFT), (35, 110))
 
@@ -230,9 +260,9 @@ while True:
             for i in range(0, H, 20): pygame.draw.line(screen, (0, 50, 150), (0, i), (W, i), 1)
             v_rad = int(250 * p_ev)
             if v_rad < 5: v_rad = 5
-            thickness = int(2 + 4 * math.sin(t_now * 5))
-            if thickness < 1: thickness = 1
-            pygame.draw.circle(screen, BLUE, (W//2, H//2), v_rad, thickness)
+            thick = int(2 + 4 * math.sin(t_now * 5))
+            if thick < 1: thick = 1
+            pygame.draw.circle(screen, BLUE, (W//2, H//2), v_rad, thick)
             for _ in range(3):
                 tx, ty = random.randint(50, W-150), random.randint(50, H-100)
                 pygame.draw.rect(screen, BLUE, (tx, ty, 100, 40), 2)
@@ -261,8 +291,7 @@ while True:
             tint((r, g, b), 80)
             for _ in range(2):
                 ox, oy = random.randint(-8, 8), random.randint(-8, 8)
-                temp_surf = screen.copy()
-                temp_surf.set_alpha(100)
+                temp_surf = screen.copy(); temp_surf.set_alpha(100)
                 screen.blit(temp_surf, (ox, oy))
             for i in range(5):
                 sy = int((t_now * 100 + i * 50) % H)
@@ -281,30 +310,26 @@ while True:
             pygame.draw.circle(screen, BLACK, (W, H), 120, 0)
             for i in range(3):
                 scan_y = int((t_now * 200 + i * 150) % H)
-                s_line = pygame.Surface((W, 2), pygame.SRCALPHA)
-                s_line.fill((255, 255, 255, 100))
+                s_line = pygame.Surface((W, 2), pygame.SRCALPHA); s_line.fill((255, 255, 255, 100))
                 screen.blit(s_line, (0, scan_y))
             for _ in range(100):
                 rx, ry = random.randrange(W), random.randrange(H)
                 pygame.draw.rect(screen, (200, 255, 200), (rx, ry, 2, 2))
             status_txt = font_small.render("NVG MODE: ACTIVE", True, WHITE)
-            if int(t_now * 2) % 2 == 0:
-                pygame.draw.circle(screen, (255, 0, 0), (W - 200, H - 110), 8)
+            if int(t_now * 2) % 2 == 0: pygame.draw.circle(screen, (255, 0, 0), (W - 200, H - 110), 8)
             screen.blit(status_txt, (W - 180, H - 120))
 
         elif et == "censored":
             tint((40, 20, 0), 160)
             for i in range(0, H, 40):
                 off = int(math.sin(t_now * 5 + i) * 20)
-                if (i // 40) % 2 == 0:
-                    pygame.draw.rect(screen, BLACK, (off, i, W, 25))
+                if (i // 40) % 2 == 0: pygame.draw.rect(screen, BLACK, (off, i, W, 25))
             for _ in range(15):
                 char = random.choice(["&", "#", "X", "§", "%", "8", "0"])
                 tx, ty = random.randint(10, W-30), random.randint(10, H-30)
                 screen.blit(font_small.render(char, True, WARN), (tx, ty))
             stempel = font_time.render("REDACTED", True, (200, 0, 0))
-            if random.random() > 0.1:
-                screen.blit(stempel, (W//2 - stempel.get_width()//2, H//2 - stempel.get_height()//2))
+            if random.random() > 0.1: screen.blit(stempel, (W//2 - stempel.get_width()//2, H//2 - stempel.get_height()//2))
             draw_text_wrapped("ZUGRIFF VERWEIGERT. DIESER VORGANG WIRD PROTOKOLLIERT.", 80, H-120, font_small, WHITE)
 
         if et != "emote" and et in EVENT_QUOTES:
@@ -317,5 +342,4 @@ while True:
     for y in range(0, H, 6):
         pygame.draw.line(s_lines, (0, 10, 0, 40), (0, y), (W, y), 1)
     screen.blit(s_lines, (0,0))
-    
     pygame.display.flip()
