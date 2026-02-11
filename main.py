@@ -107,10 +107,10 @@ font_time, font_body, font_small = load_font(75), load_font(32), load_font(24)
 try: bg = pygame.transform.scale(pygame.image.load(BG_PATH),(W,H))
 except: bg = pygame.Surface((W,H)); bg.fill(BLACK)
 
-# Hamster massiv vergrößert (Skalierung auf 293x293)
+# Critl MASSIV auf 400x400 skaliert
 critl_imgs={}
 for k,p in CRITL_PATHS.items():
-    try: critl_imgs[k]=pygame.transform.smoothscale(pygame.image.load(p).convert_alpha(),(293,293))
+    try: critl_imgs[k]=pygame.transform.smoothscale(pygame.image.load(p).convert_alpha(),(300,300))
     except: critl_imgs[k]=None
 
 def draw_text_wrapped(text, x, y, font, color, max_w=580):
@@ -152,24 +152,24 @@ def tint(color, alpha):
 
 def draw_status_icons(t):
     start_x, y = W - 110, 20
-    # WiFi - extrem langsam (Grün)
+    r, g, b = 80, 255, 80
+    # WiFi
     w_v = int(100 + 100 * math.sin(t * 0.8))
     s_w = pygame.Surface((34,34), pygame.SRCALPHA)
-    for i in range(3): 
-        pygame.draw.arc(s_w, (GREEN[0], GREEN[1], GREEN[2], w_v), (5+i*4, 8+i*4, 24-i*8, 24-i*8), math.pi/4, 3*math.pi/4, 2)
+    for i in range(3): pygame.draw.arc(s_w, (r, g, b, w_v), (5+i*4, 8+i*4, 24-i*8, 24-i*8), math.pi/4, 3*math.pi/4, 2)
     screen.blit(s_w, (start_x, y))
-    # Rad - extrem langsam (Grün)
+    # Rad
     r_v = int(100 + 100 * math.sin(t * 0.5))
     s_r = pygame.Surface((34,34), pygame.SRCALPHA); c=(17,17)
-    pygame.draw.circle(s_r, (GREEN[0], GREEN[1], GREEN[2], r_v), c, 4)
+    pygame.draw.circle(s_r, (r, g, b, r_v), c, 4)
     for i in range(3):
         ang = i * (2 * math.pi / 3) - (math.pi / 2)
         p1 = (c[0] + 14 * math.cos(ang - 0.5), c[1] + 14 * math.sin(ang - 0.5))
         p2 = (c[0] + 14 * math.cos(ang + 0.5), c[1] + 14 * math.sin(ang + 0.5))
-        pygame.draw.polygon(s_r, (GREEN[0], GREEN[1], GREEN[2], r_v), [c, p1, p2])
+        pygame.draw.polygon(s_r, (r, g, b, r_v), [c, p1, p2])
     screen.blit(s_r, (start_x + 35, y))
-    # Blitz - Seltenes Zucken (Grün)
-    bc = (200, 255, 200, 255) if random.random() > 0.98 else (GREEN[0]//2, GREEN[1]//2, GREEN[2]//2, 100)
+    # Blitz
+    bc = (200, 255, 200, 255) if random.random() > 0.98 else (r//2, g//2, b//2, 100)
     s_b = pygame.Surface((34,34), pygame.SRCALPHA)
     pts = [(17, 4), (24, 16), (17, 16), (20, 30), (10, 16), (17, 16)]
     pygame.draw.polygon(s_b, bc, pts)
@@ -192,7 +192,6 @@ while True:
     label, remain, prog = get_status(now)
     is_p = "PAUSE" in label or "VORBEREITUNG" in label
     
-    # 1. Hintergrund zeichnen
     screen.blit(bg, (0, 0))
 
     if active_event:
@@ -211,10 +210,8 @@ while True:
             shake = int(2 + 28 * p_ev)
             ox, oy = random.randint(-shake, shake), random.randint(-shake, shake)
             screen.blit(screen.copy(), (ox, oy))
-            # SILENT ALARM: Nur Flackern und Shake
             flash_speed = 5 + (25 * p_ev)
-            if math.sin(t_now * flash_speed) > 0:
-                tint((255, 0, 0), int(50 + 70 * p_ev))
+            if math.sin(t_now * flash_speed) > 0: tint((255, 0, 0), int(50 + 70 * p_ev))
 
         elif et == "vats":
             tint((0, 0, 100), 50)
@@ -238,9 +235,7 @@ while True:
                 screen.blit(txt, (40, 60 + i * 25))
 
         elif et == "chem":
-            r = int(127 + 127 * math.sin(t_now * 4))
-            g = int(127 + 127 * math.sin(t_now * 4 + 2))
-            b = int(127 + 127 * math.sin(t_now * 4 + 4))
+            r, g, b = int(127 + 127 * math.sin(t_now * 4)), int(127 + 127 * math.sin(t_now * 4 + 2)), int(127 + 127 * math.sin(t_now * 4 + 4))
             tint((r, g, b), 120)
 
         elif et == "vision":
@@ -273,43 +268,33 @@ while True:
         wd = {"Monday":"MONTAG","Tuesday":"DIENSTAG","Wednesday":"MITTWOCH","Thursday":"DONNERSTAG","Friday":"FREITAG","Saturday":"SAMSTAG","Sunday":"SONNTAG"}
         screen.blit(font_body.render(f"{wd.get(now.strftime('%A'),'TAG')}, {now.strftime('%d.%m.')}", True, GREEN_SOFT), (35, 110))
 
-        # GESICHTER-VARIETÄT MIT GLOW
         if t_now - last_face_change > 5:
-            all_faces = [
-                "(o_o)", "[O.O]", "( -_-)", "<o_o>", "(u_u)", "(-.-)", 
-                "(^.^)", "(^o^)", "(◕‿◕)", "(°◡°)", "[^‿^]", "( d b )",
-                "(°_°)", "[(X)]", "(X_X)", "(⊙_⊙)", "(O_o)", "(>_<)",
-                "{0_0}", "|o_o|", "0_0", "[-_-]", "[o.o]", "<-_-+>",
-                "( ¬‿¬)", "(•ㅅ•)", "(╥﹏╥)", "(o_O)", "(◕_◕)", "(⌐■_■)"
-            ]
+            all_faces = ["(o_o)", "[O.O]", "( -_-)", "<o_o>", "(u_u)", "(^.^)", "(⌐■_■)", "(◕‿◕)"]
             active_face = random.choice(all_faces)
             last_face_change = t_now
 
-        glow_col = (20, 100, 20)
-        screen.blit(font_body.render(active_face, True, glow_col), (37, 182))
+        screen.blit(font_body.render(active_face, True, (20, 100, 20)), (37, 182)) # Glow
         screen.blit(font_body.render(active_face, True, GREEN), (35, 180))
 
         draw_bar(20, H-80, 600, 45, prog, is_p, remain, label)
         mood = "müde" if is_p else ("genervt" if remain <= 120 else "neutral")
         img = critl_imgs.get(1 if mood=="neutral" else (2 if mood=="genervt" else 3))
-        # Bildposition angepasst für Größe 293x293
-        if img: screen.blit(img, (W - 310, H - 400)) 
+        # Riesen Hamster Position (400x400)
+        if img: screen.blit(img, (W - 420, H - 470)) 
         
         if not active_quote and t_now > next_quote:
             active_quote, q_until, next_quote = random.choice(CRITL_QUOTES[mood]), t_now+6, t_now+random.randint(30,60)
         if active_quote: draw_text_wrapped("CRITL: "+active_quote, 35, H-130, font_small, GREEN_SOFT)
 
-    # --- GLOBALE EFFEKTE (SCANLINES) ---
+    # --- GLOBALE EFFEKTE ---
     draw_edge_scan(t_now)
     sl = pygame.Surface((W, H), pygame.SRCALPHA)
     for y in range(0, H, 6): pygame.draw.line(sl, (0, 10, 0, 40), (0, y), (W, y), 1)
     screen.blit(sl, (0,0))
 
-    # Event Timer Check
     if not active_event and t_now > next_event:
         active_event = random.choice(EVENTS)
         ev_start, ev_dur = t_now, random.randint(active_event["min"], active_event["max"])
-        # Pause zwischen Events: 3 bis 10 Minuten
         next_event = t_now + random.randint(180, 600)
     
     pygame.display.flip()
