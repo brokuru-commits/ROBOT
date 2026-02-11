@@ -36,7 +36,7 @@ CRITL_PATHS = {
 # STUNDENPLAN
 # ============================================================
 PLAN_RAW = [
-    ("07:30","08:00","PAUSE"),
+    ("07:30","08:00","VORBEREITUNG"),
     ("08:00","08:45","UNTERRICHT"),
     ("08:45","08:50","PAUSE"),
     ("08:50","09:35","UNTERRICHT"),
@@ -54,14 +54,13 @@ PLAN_RAW = [
     ("14:25","15:10","UNTERRICHT"),
     ("15:10","15:15","PAUSE"),
     ("15:15","16:00","UNTERRICHT"),
-    ("16:00","17:00","FEIERABEND"),
 ]
 
 def number_lessons(plan):
     n=1; out=[]
     for a,b,l in plan:
         if l=="UNTERRICHT":
-            l=f"STUNDE {n}"
+            l=f"{n}. STUNDE"
             n+=1
         out.append((a,b,l))
     return out
@@ -80,7 +79,7 @@ def get_status(now):
             total=e-s
             passed=cur-s
             return l,e-cur,passed/total
-    return "FEIERABEND",0,0
+    return "FEIERABEND",0,1.0
 
 def fmt(sec):
     m,s = divmod(int(sec),60)
@@ -92,47 +91,28 @@ def blend(c1,c2,t):
     return tuple(int(c1[i]+(c2[i]-c1[i])*t) for i in range(3))
 
 # ============================================================
-# CRITL SPRÜCHE
+# EVENTS & SPRÜCHE
 # ============================================================
 CRITL_QUOTES = {
-    "neutral":[
-        "System läuft. Ich auch.",
-        "Alles stabil. Verdächtig stabil.",
-        "Hö hö hö.... nur so :-)"
-    ],
-    "genervt":[
-        "Nein, Martin. Einfach nein.",
-        "‚Nur kurz‘ ist kein Wartungsplan.",
-        "Ich repariere das. Du schaust zu."
-    ],
-    "müde":[
-        "Energie niedrig. Pflichtbewusstsein hoch.",
-        "Pause wäre sinnvoll.",
-        "Ich funktioniere. Das reicht."
-    ],
-    "arbeit":[
-        "Scan läuft. Kompetenz sowieso.",
-        "Ich analysiere. Du atmest.",
-        "Das wird effizient."
-    ]
+    "neutral": ["System läuft stabil.", "Alles im grünen Bereich.", "Hö hö hö...."],
+    "genervt": ["Einfach nein.", "Wartung erforderlich.", "Ich repariere, du atmest."],
+    "müde": ["Energie niedrig.", "Pause wäre sinnvoll.", "Funktioniere noch."],
+    "arbeit": ["Scan läuft.", "Analysiere Umgebung.", "Effizienz maximiert."]
 }
 
-# ============================================================
-# EVENTS
-# ============================================================
 EVENTS = [
     {"type":"scan","min":6,"max":10},
     {"type":"warn","min":4,"max":7},
     {"type":"leak","min":4,"max":6},
     {"type":"glitch","min":2,"max":4},
-    {"type":"teacher","min":5,"max":8}
+    {"type":"emote","min":5,"max":5}
 ]
 
 # ============================================================
 # INIT
 # ============================================================
 pygame.init()
-screen = pygame.display.set_mode((W,H),pygame.FULLSCREEN)
+screen = pygame.display.set_mode((W,H), pygame.FULLSCREEN | pygame.NOFRAME)
 pygame.mouse.set_visible(False)
 clock = pygame.time.Clock()
 
@@ -142,51 +122,48 @@ def load_font(size):
 
 font_time  = load_font(68)
 font_body  = load_font(30)
-font_small = load_font(22)
+font_small = load_font(20)
 
-bg = pygame.transform.scale(pygame.image.load(BG_PATH),(W,H))
+try: bg = pygame.transform.scale(pygame.image.load(BG_PATH),(W,H))
+except: bg = pygame.Surface((W,H)); bg.fill(BLACK)
 
 critl_imgs={}
 for k,p in CRITL_PATHS.items():
-    try:
-        critl_imgs[k]=pygame.transform.smoothscale(
-            pygame.image.load(p).convert_alpha(),(170,170)
-        )
-    except:
-        critl_imgs[k]=None
+    try: critl_imgs[k]=pygame.transform.smoothscale(pygame.image.load(p).convert_alpha(),(170,170))
+    except: critl_imgs[k]=None
 
 # ============================================================
-# HELPERS
+# DRAW FUNCTIONS
 # ============================================================
-def draw_scanlines():
-    s=pygame.Surface((W,H),pygame.SRCALPHA)
-    for y in range(0,H,3):
-        s.fill((0,0,0,35),(0,y,W,1))
-    screen.blit(s,(0,0))
+def draw_bar(x, y, w, h, prog, is_pause, remain, label):
+    pygame.draw.rect(screen, DIM_GREEN, (x, y, w, h))
+    pygame.draw.rect(screen, GREEN, (x, y, w, h), 2)
+    base = BLUE if is_pause else GREEN
+    col = base
+    if remain <= 120: col = blend(base, WARN, 1 - remain / 120)
+    fill_w = int((w - 4) * prog)
+    if fill_w > 0: pygame.draw.rect(screen, col, (x + 2, y + 2, fill_w, h - 4))
+    
+    txt = f"{label} | NOCH {fmt(remain)}" if remain > 0 else label
+    s_light = font_small.render(txt, True, GREEN_SOFT)
+    s_dark  = font_small.render(txt, True, BLACK)
+    tx, ty = x + (w-s_light.get_width())//2, y + (h-s_light.get_height())//2
+    
+    screen.set_clip(pygame.Rect(x+2, y+2, fill_w, h-4))
+    screen.blit(s_dark, (tx, ty))
+    screen.set_clip(pygame.Rect(x+2+fill_w, y+2, w-4-fill_w, h-4))
+    screen.blit(s_light, (tx, ty))
+    screen.set_clip(None)
 
 def draw_edge_scan(t):
-    w,h,speed=90,2,35
-    x=int((t*speed)%(W+w))-w
-    pulse=0.5+0.5*math.sin(t*0.8)
-    col=blend(GREEN,WARN,pulse*0.25)
-    pygame.draw.rect(screen,col,(x,H-13,w,h))
-
-def draw_bar(x,y,w,h,prog,is_pause,remain,label):
-    pygame.draw.rect(screen,DIM_GREEN,(x,y,w,h))
-    pygame.draw.rect(screen,GREEN,(x,y,w,h),2)
-    base=BLUE if is_pause else GREEN
-    col=base
-    if remain<=120:
-        col=blend(base,WARN,1-remain/120)
-    fill=int((w-4)*prog)
-    if fill>0:
-        pygame.draw.rect(screen,col,(x+2,y+2,fill,h-4))
-    txt_col=BLACK if fill>w*0.4 else GREEN_SOFT
-    l=font_small.render(label,True,txt_col)
-    r=font_small.render(f"noch {fmt(remain)}",True,txt_col)
-    ty=y+(h-l.get_height())//2
-    screen.blit(l,(x+10,ty))
-    screen.blit(r,(x+w-r.get_width()-10,ty))
+    line_w, line_x = 40, int((t * 80) % W)
+    c_val = int(math.sin(t * 2) * 127 + 128)
+    col = (0, 255, c_val)
+    if line_x + line_w > W:
+        pygame.draw.line(screen, col, (line_x, H-10), (W, H-10), 2)
+        pygame.draw.line(screen, col, (0, H-10), (line_w - (W - line_x), H-10), 2)
+    else:
+        pygame.draw.line(screen, col, (line_x, H-10), (line_x + line_w, H-10), 2)
 
 def tint(color,alpha):
     s=pygame.Surface((W,H),pygame.SRCALPHA)
@@ -194,103 +171,100 @@ def tint(color,alpha):
     screen.blit(s,(0,0))
 
 # ============================================================
-# EVENT STATE
+# STATES
 # ============================================================
-active_event=None
-event_start=0
-event_dur=0
-next_event=time.time()+random.randint(40,90)
-
-active_quote=""
-quote_until=0
-next_quote=time.time()+random.randint(20,50)
+active_event = None
+event_start, event_dur = 0, 0
+next_event = time.time() + 30
+active_quote, quote_until = "", 0
+next_quote = time.time() + 20
+active_face = "(o_o)"
+last_face_change = 0
 
 # ============================================================
 # MAIN LOOP
 # ============================================================
 while True:
+    t_now = time.time()
     clock.tick(FPS)
-
     for e in pygame.event.get():
-        if e.type==pygame.KEYDOWN and e.key in (pygame.K_ESCAPE,pygame.K_q):
+        if e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_q):
             pygame.quit(); sys.exit()
 
-    now=datetime.now()
-    label,remain,prog=get_status(now)
-    is_pause="PAUSE" in label
+    now = datetime.now()
+    label, remain, prog = get_status(now)
+    is_pause = "PAUSE" in label or "VORBEREITUNG" in label
 
-    screen.blit(bg,(0,0))
+    # Hintergrund
+    screen.blit(bg, (0, 0))
 
-    # Uhr + Datum
-    screen.blit(font_time.render(now.strftime("%H:%M"),True,GREEN),(60,40))
-    screen.blit(font_body.render(now.strftime("%A, %d.%m.%Y"),True,GREEN_SOFT),(60,120))
+    if active_event and active_event["type"] == "emote":
+        # FULLSCREEN EMOTE EVENT
+        e_img = critl_imgs.get(random.randint(1,4))
+        if e_img:
+            full_img = pygame.transform.scale(e_img, (W, H))
+            screen.blit(full_img, (0, 0))
+    else:
+        # NORMALES DASHBOARD
+        screen.blit(font_time.render(now.strftime("%H:%M"), True, GREEN), (60, 40))
+        wd_map = {"Monday":"MONTAG", "Tuesday":"DIENSTAG", "Wednesday":"MITTWOCH", "Thursday":"DONNERSTAG", "Friday":"FREITAG", "Saturday":"SAMSTAG", "Sunday":"SONNTAG"}
+        day_str = wd_map.get(now.strftime("%A"), now.strftime("%A").upper())
+        screen.blit(font_body.render(f"{day_str}, {now.strftime('%d.%m.')}", True, GREEN_SOFT), (60, 125))
 
-    # Balken
-    bar_y=H-26-18
-    draw_bar(70,bar_y,W-120,26,prog,is_pause,remain,label)
+        # ASCII Gesicht
+        if t_now - last_face_change > 5:
+            active_face = random.choice(["(o_o)", "[O.O]", "(^.^)", "<o.o>", "( -_-)"])
+            last_face_change = t_now
+        screen.blit(font_body.render(active_face, True, GREEN), (60, 210))
 
-    draw_edge_scan(time.time())
+        # Balken & Scanline
+        bar_y = H - 60
+        draw_bar(60, bar_y, W - 120, 30, prog, is_pause, remain, label)
+        
+        # Mood & Small Critl
+        mood = "neutral"
+        if is_pause: mood = "müde"
+        if remain <= 120 and not is_pause: mood = "genervt"
+        
+        c_mode = 1
+        if mood == "müde": c_mode = 3
+        elif mood == "genervt": c_mode = 2
+        
+        img = critl_imgs.get(c_mode)
+        if img: screen.blit(img, (W - 190, bar_y - 180))
 
-    # Critl Stimmung
-    mood="neutral"
-    if is_pause: mood="müde"
-    if remain<=120 and "UNTERRICHT" in label: mood="genervt"
+        # Sprüche
+        if not active_quote and t_now > next_quote:
+            active_quote = random.choice(CRITL_QUOTES[mood])
+            quote_until, next_quote = t_now + 6, t_now + random.randint(30, 60)
+        if active_quote:
+            screen.blit(font_small.render("CRITL: " + active_quote, True, GREEN_SOFT), (60, bar_y - 30))
+            if t_now > quote_until: active_quote = ""
 
-    mode=1
-    if mood=="müde": mode=3
-    if mood=="genervt": mode=2
-
-    img=critl_imgs.get(mode)
-    if img:
-        screen.blit(img,(W-img.get_width()-20,bar_y-img.get_height()-14))
-
-    # Quote
-    t_now=time.time()
-    if not active_quote and t_now>next_quote:
-        active_quote=random.choice(CRITL_QUOTES[mood])
-        quote_until=t_now+6
-        next_quote=t_now+random.randint(30,60)
-
-    if active_quote:
-        screen.blit(font_small.render("CRITL: "+active_quote,True,GREEN_SOFT),
-                    (60,bar_y-26))
-        if t_now>quote_until:
-            active_quote=""
-
-    # Events
-    if active_event is None and t_now>next_event:
-        active_event=random.choice(EVENTS)
-        event_start=t_now
-        event_dur=random.randint(active_event["min"],active_event["max"])
-        next_event=t_now+random.randint(70,140)
+    # Events Logik
+    if active_event is None and t_now > next_event:
+        active_event = random.choice(EVENTS)
+        event_start, event_dur = t_now, active_event["min"]
+        next_event = t_now + random.randint(60, 150)
 
     if active_event:
-        p=clamp((t_now-event_start)/event_dur,0,1)
-        et=active_event["type"]
+        et = active_event["type"]
+        if et == "warn": tint((255, 50, 0), 60)
+        elif et == "leak":
+            tint((0, 100, 255), 50)
+            for _ in range(50): screen.set_at((random.randrange(W), random.randrange(H)), GREEN)
+        elif et == "glitch":
+            yy = random.randrange(H); hh = random.randrange(5, 20); off = random.randrange(-15, 16)
+            r = pygame.Rect(0, yy, W, hh)
+            try:
+                sub = screen.subsurface(r).copy()
+                screen.blit(sub, (off, yy))
+            except: pass
+        
+        if t_now - event_start >= event_dur: active_event = None
 
-        if et=="scan":
-            tint(ORANGE,70)
-            pygame.draw.rect(screen,ORANGE,(80,220,480,20))
-            pygame.draw.rect(screen,BLACK,(80,220,int(480*(1-p)),20))
-        elif et=="warn":
-            tint((255,80,60),50)
-        elif et=="leak":
-            tint((0,60,80),60)
-            for _ in range(120):
-                screen.set_at((random.randrange(W),random.randrange(H)),(0,210,255))
-        elif et=="glitch":
-            for _ in range(6):
-                yy=random.randrange(H)
-                hh=random.randrange(4,12)
-                off=random.randrange(-20,21)
-                r=pygame.Rect(0,yy,W,hh)
-                piece=screen.subsurface(r).copy()
-                screen.blit(piece,(off,yy))
-        elif et=="teacher":
-            screen.blit(font_body.render("Unterrichten ist Debugging mit Publikum.",True,WARN),(60,200))
-
-        if t_now-event_start>=event_dur:
-            active_event=None
-
-    draw_scanlines()
+    draw_edge_scan(t_now)
+    # Global Scanlines
+    for y in range(0, H, 4): pygame.draw.line(screen, (0, 10, 0), (0, y), (W, y), 1)
+    
     pygame.display.flip()
