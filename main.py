@@ -70,7 +70,7 @@ def clamp(x,a,b): return a if x<a else b if x>b else x
 def blend(c1,c2,t): return tuple(int(c1[i]+(c2[i]-c1[i])*t) for i in range(3))
 
 # ============================================================
-# KONFIGURATION & TIMING
+# KONFIGURATION
 # ============================================================
 CRITL_QUOTES = {
     "neutral": ["System läuft.", "Alles stabil.", "Guck nicht so!"],
@@ -107,10 +107,10 @@ font_time, font_body, font_small = load_font(75), load_font(32), load_font(24)
 try: bg = pygame.transform.scale(pygame.image.load(BG_PATH),(W,H))
 except: bg = pygame.Surface((W,H)); bg.fill(BLACK)
 
-# Critl MASSIV auf 400x400 skaliert
+# Hamster optimiert auf 350x350
 critl_imgs={}
 for k,p in CRITL_PATHS.items():
-    try: critl_imgs[k]=pygame.transform.smoothscale(pygame.image.load(p).convert_alpha(),(300,300))
+    try: critl_imgs[k]=pygame.transform.smoothscale(pygame.image.load(p).convert_alpha(),(350,350))
     except: critl_imgs[k]=None
 
 def draw_text_wrapped(text, x, y, font, color, max_w=580):
@@ -153,12 +153,10 @@ def tint(color, alpha):
 def draw_status_icons(t):
     start_x, y = W - 110, 20
     r, g, b = 80, 255, 80
-    # WiFi
     w_v = int(100 + 100 * math.sin(t * 0.8))
     s_w = pygame.Surface((34,34), pygame.SRCALPHA)
     for i in range(3): pygame.draw.arc(s_w, (r, g, b, w_v), (5+i*4, 8+i*4, 24-i*8, 24-i*8), math.pi/4, 3*math.pi/4, 2)
     screen.blit(s_w, (start_x, y))
-    # Rad
     r_v = int(100 + 100 * math.sin(t * 0.5))
     s_r = pygame.Surface((34,34), pygame.SRCALPHA); c=(17,17)
     pygame.draw.circle(s_r, (r, g, b, r_v), c, 4)
@@ -168,7 +166,6 @@ def draw_status_icons(t):
         p2 = (c[0] + 14 * math.cos(ang + 0.5), c[1] + 14 * math.sin(ang + 0.5))
         pygame.draw.polygon(s_r, (r, g, b, r_v), [c, p1, p2])
     screen.blit(s_r, (start_x + 35, y))
-    # Blitz
     bc = (200, 255, 200, 255) if random.random() > 0.98 else (r//2, g//2, b//2, 100)
     s_b = pygame.Surface((34,34), pygame.SRCALPHA)
     pts = [(17, 4), (24, 16), (17, 16), (20, 30), (10, 16), (17, 16)]
@@ -263,6 +260,12 @@ while True:
 
     else:
         # --- DASHBOARD (HOMESCREEN) ---
+        # 1. Hamster im Hintergrund des Dashboards
+        mood = "müde" if is_p else ("genervt" if remain <= 120 else "neutral")
+        img = critl_imgs.get(1 if mood=="neutral" else (2 if mood=="genervt" else 3))
+        if img: screen.blit(img, (W - 360, 40)) 
+
+        # 2. UI Elemente darüber
         screen.blit(font_time.render(now.strftime("%H:%M"), True, GREEN), (30, 30))
         draw_status_icons(t_now)
         wd = {"Monday":"MONTAG","Tuesday":"DIENSTAG","Wednesday":"MITTWOCH","Thursday":"DONNERSTAG","Friday":"FREITAG","Saturday":"SAMSTAG","Sunday":"SONNTAG"}
@@ -273,18 +276,16 @@ while True:
             active_face = random.choice(all_faces)
             last_face_change = t_now
 
-        screen.blit(font_body.render(active_face, True, (20, 100, 20)), (37, 182)) # Glow
+        screen.blit(font_body.render(active_face, True, (20, 100, 20)), (37, 182))
         screen.blit(font_body.render(active_face, True, GREEN), (35, 180))
 
+        # 3. Balken und Text GANZ OBENAUF
         draw_bar(20, H-80, 600, 45, prog, is_p, remain, label)
-        mood = "müde" if is_p else ("genervt" if remain <= 120 else "neutral")
-        img = critl_imgs.get(1 if mood=="neutral" else (2 if mood=="genervt" else 3))
-        # Riesen Hamster Position (400x400)
-        if img: screen.blit(img, (W - 420, H - 470)) 
         
         if not active_quote and t_now > next_quote:
             active_quote, q_until, next_quote = random.choice(CRITL_QUOTES[mood]), t_now+6, t_now+random.randint(30,60)
-        if active_quote: draw_text_wrapped("CRITL: "+active_quote, 35, H-130, font_small, GREEN_SOFT)
+        if active_quote: 
+            draw_text_wrapped("CRITL: "+active_quote, 35, H-130, font_small, GREEN_SOFT)
 
     # --- GLOBALE EFFEKTE ---
     draw_edge_scan(t_now)
