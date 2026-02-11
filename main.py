@@ -70,7 +70,7 @@ def clamp(x,a,b): return a if x<a else b if x>b else x
 def blend(c1,c2,t): return tuple(int(c1[i]+(c2[i]-c1[i])*t) for i in range(3))
 
 # ============================================================
-# SPRÜCHE & EVENTS
+# SPRÜCHE & LÄNGERE EVENTS
 # ============================================================
 CRITL_QUOTES = {
     "neutral": ["System läuft. Du auch?", "Alles stabil. Zu stabil...", "Guck nicht so, ich arbeite!"],
@@ -79,15 +79,16 @@ CRITL_QUOTES = {
     "arbeit": ["Scan läuft. IQ nicht gefunden.", "Analysiere... Langeweile erkannt.", "Effizienz ist keine Option."]
 }
 
+# EVENT ZEITEN MASSIV ERHÖHT (20-45 Sekunden)
 EVENTS = [
-    {"type":"rads",     "min":6,  "max":10},
-    {"type":"critical", "min":15, "max":15},
-    {"type":"vats",     "min":8,  "max":12},
-    {"type":"error",    "min":5,  "max":7},
-    {"type":"chem",     "min":6,  "max":9},
-    {"type":"vision",   "min":6,  "max":9},
-    {"type":"censored", "min":5,  "max":8},
-    {"type":"emote",    "min":5,  "max":5}
+    {"type":"rads",     "min":25, "max":45},
+    {"type":"critical", "min":30, "max":45},
+    {"type":"vats",     "min":20, "max":40},
+    {"type":"error",    "min":15, "max":30},
+    {"type":"chem",     "min":20, "max":35},
+    {"type":"vision",   "min":20, "max":40},
+    {"type":"censored", "min":20, "max":45},
+    {"type":"emote",    "min":10, "max":15}
 ]
 
 EVENT_QUOTES = {
@@ -162,14 +163,12 @@ def tint(color, alpha):
 def draw_status_icons(t):
     start_x = W - 140
     y = 40
-    # 1. WiFi
     wifi_val = int(140 + 115 * math.sin(t * 4))
     wifi_col = (0, 180, 255, wifi_val)
     s_wifi = pygame.Surface((34, 34), pygame.SRCALPHA)
     for i in range(3):
         pygame.draw.arc(s_wifi, wifi_col, (5+i*4, 8+i*4, 24-i*8, 24-i*8), math.pi/4, 3*math.pi/4, 2)
     screen.blit(s_wifi, (start_x, y))
-    # 2. Rad
     rad_val = int(140 + 115 * math.sin(t * 2))
     rad_col = (255, 170, 0, rad_val)
     s_rad = pygame.Surface((34, 34), pygame.SRCALPHA)
@@ -181,7 +180,6 @@ def draw_status_icons(t):
         p2 = (c[0] + 14 * math.cos(ang + 0.5), c[1] + 14 * math.sin(ang + 0.5))
         pygame.draw.polygon(s_rad, rad_col, [c, p1, p2])
     screen.blit(s_rad, (start_x + 45, y))
-    # 3. Blitz
     bolt_col = (255, 255, 100, 255) if random.random() > 0.92 else (140, 140, 0, 180)
     s_bolt = pygame.Surface((34, 34), pygame.SRCALPHA)
     pts = [(17, 4), (24, 16), (17, 16), (20, 30), (10, 16), (17, 16)]
@@ -204,12 +202,94 @@ while True:
     label, remain, prog = get_status(now)
     is_p = "PAUSE" in label or "VORBEREITUNG" in label
     
+    # 1. Immer Hintergrund zeichnen
     screen.blit(bg, (0, 0))
 
-    if active_event and active_event["type"] == "emote":
-        ei = critl_imgs.get(random.randint(1,4))
-        if ei: screen.blit(pygame.transform.scale(ei, (W,H)), (0,0))
+    # --- EVENT LOGIK (HOMESCREEN AUSBLENDEN) ---
+    if active_event:
+        p_ev = clamp((t_now - ev_start) / ev_dur, 0, 1)
+        et = active_event["type"]
+
+        if et == "rads":
+            tint((0, 255, 0), 60) # Hintergrund Grün
+            wave_y = int((t_now * 150) % H)
+            pygame.draw.rect(screen, (0, 255, 0, 40), (0, wave_y, W, 60))
+            tint((0, 255, 0), int(30 + 20 * math.sin(t_now * 10)))
+            for _ in range(250): screen.set_at((random.randrange(W), random.randrange(H)), GREEN)
+
+        elif et == "critical":
+            tint((100, 0, 0), 80) # Hintergrund Dunkelrot
+            shake = int(2 + 25 * p_ev)
+            ox, oy = random.randint(-shake, shake), random.randint(-shake, shake)
+            screen.blit(screen.copy(), (ox, oy))
+            if math.sin(t_now * (5 + 20 * p_ev)) > 0: tint((255, 0, 0), int(40 + 60 * p_ev))
+            s_a = font_time.render("ALARM", True, WHITE)
+            screen.blit(s_a, (W//2-s_a.get_width()//2+ox, H//2-60+oy))
+
+        elif et == "vats":
+            tint((0, 0, 100), 50) # Hintergrund Dunkelblau
+            pygame.draw.rect(screen, BLUE, (0,0,W,H), 12)
+            for i in range(0, W, 20): pygame.draw.line(screen, (0, 50, 150), (i, 0), (i, H), 1)
+            for i in range(0, H, 20): pygame.draw.line(screen, (0, 50, 150), (0, i), (W, i), 1)
+            v_rad = int(250 * p_ev)
+            if v_rad < 5: v_rad = 5
+            thick = int(2 + 4 * math.sin(t_now * 5))
+            if thick < 1: thick = 1
+            pygame.draw.circle(screen, BLUE, (W//2,H//2), v_rad, thick)
+            for _ in range(3):
+                tx, ty = random.randint(50, W-150), random.randint(50, H-100)
+                pygame.draw.rect(screen, BLUE, (tx, ty, 100, 40), 2)
+                perc = font_small.render(f"{random.randint(10,99)}%", True, BLUE)
+                screen.blit(perc, (tx + 5, ty + 5))
+            pygame.draw.line(screen, WHITE, (W//2-20, H//2), (W//2+20, H//2), 2)
+            pygame.draw.line(screen, WHITE, (W//2, H//2-20), (W//2, H//2+20), 2)
+
+        elif et == "error":
+            screen.fill((0, 0, 150)) # Vollflächig Blau
+            header = font_body.render("*** TERMINAL ERROR ***", True, WHITE)
+            screen.blit(header, (W//2 - header.get_width()//2, 40))
+            line_count = int(p_ev * 12)
+            for i in range(line_count):
+                addr = f"0x00{random.randint(1000, 9999)}: CRITICAL_MEMORY_CORRUPTION"
+                txt = font_small.render(addr, True, WHITE)
+                screen.blit(txt, (40, 100 + i * 25))
+            if int(t_now * 4) % 2 == 0:
+                pygame.draw.rect(screen, WHITE, (40, 100 + line_count * 25, 15, 20))
+            draw_text_wrapped("SYSTEM REBOOT IN PROGRESS...", 40, H-80, font_small, WARN)
+
+        elif et == "chem":
+            r = int(127 + 127 * math.sin(t_now * 4))
+            g = int(127 + 127 * math.sin(t_now * 4 + 2))
+            b = int(127 + 127 * math.sin(t_now * 4 + 4))
+            tint((r, g, b), 120) # Starke wechselnde Tönung
+
+        elif et == "vision":
+            tint((150, 255, 150), 160) # Hellgrün Überstrahlt
+            pygame.draw.circle(screen, BLACK, (0, 0), 120, 0)
+            pygame.draw.circle(screen, BLACK, (W, 0), 120, 0)
+            pygame.draw.circle(screen, BLACK, (0, H), 120, 0)
+            pygame.draw.circle(screen, BLACK, (W, H), 120, 0)
+
+        elif et == "censored":
+            tint((20, 10, 0), 200) # Fast Schwarz-Orange
+            for i in range(0, H, 40):
+                off = int(math.sin(t_now * 5 + i) * 20)
+                if (i // 40) % 2 == 0: pygame.draw.rect(screen, BLACK, (off, i, W, 25))
+            stempel = font_time.render("REDACTED", True, (200, 0, 0))
+            screen.blit(stempel, (W//2 - stempel.get_width()//2, H//2 - stempel.get_height()//2))
+
+        elif et == "emote":
+            ei = critl_imgs.get(random.randint(1,4))
+            if ei: screen.blit(pygame.transform.scale(ei, (W,H)), (0,0))
+
+        # Event Quote (Wird während des Events angezeigt)
+        if et != "emote" and et in EVENT_QUOTES:
+            draw_text_wrapped(EVENT_QUOTES[et], 40, 40, font_small, WHITE)
+
+        if t_now - ev_start >= ev_dur: active_event = None
+
     else:
+        # --- HOMESCREEN DASHBOARD (NUR WENN KEIN EVENT) ---
         screen.blit(font_time.render(now.strftime("%H:%M"), True, GREEN), (30, 30))
         draw_status_icons(t_now)
         wd_names = {"Monday":"MONTAG","Tuesday":"DIENSTAG","Wednesday":"MITTWOCH","Thursday":"DONNERSTAG","Friday":"FREITAG","Saturday":"SAMSTAG","Sunday":"SONNTAG"}
@@ -231,115 +311,17 @@ while True:
             active_quote, q_until, next_quote = random.choice(CRITL_QUOTES[mood]), t_now+6, t_now+random.randint(30,60)
         if active_quote: draw_text_wrapped("CRITL: "+active_quote, 35, H-130, font_small, GREEN_SOFT)
 
-    if not active_event and t_now > next_event:
-        active_event = random.choice(EVENTS)
-        ev_start, ev_dur = t_now, active_event["min"]
-        next_event = t_now + random.randint(60, 150)
-
-    if active_event:
-        p_ev = clamp((t_now - ev_start) / ev_dur, 0, 1)
-        et = active_event["type"]
-
-        if et == "rads":
-            wave_y = int((t_now * 150) % H)
-            pygame.draw.rect(screen, (0, 255, 0, 40), (0, wave_y, W, 60))
-            tint((0, 255, 0), int(30 + 20 * math.sin(t_now * 10)))
-            for _ in range(250): screen.set_at((random.randrange(W), random.randrange(H)), GREEN)
-
-        elif et == "critical":
-            shake = int(2 + 25 * p_ev)
-            ox, oy = random.randint(-shake, shake), random.randint(-shake, shake)
-            screen.blit(screen.copy(), (ox, oy))
-            if math.sin(t_now * (5 + 20 * p_ev)) > 0: tint((255, 0, 0), int(40 + 60 * p_ev))
-            s_a = font_time.render("ALARM", True, WHITE)
-            screen.blit(s_a, (W//2-s_a.get_width()//2+ox, H//2-60+oy))
-
-        elif et == "vats":
-            pygame.draw.rect(screen, BLUE, (0,0,W,H), 12)
-            for i in range(0, W, 20): pygame.draw.line(screen, (0, 50, 150), (i, 0), (i, H), 1)
-            for i in range(0, H, 20): pygame.draw.line(screen, (0, 50, 150), (0, i), (W, i), 1)
-            v_rad = int(250 * p_ev)
-            if v_rad < 5: v_rad = 5
-            thick = int(2 + 4 * math.sin(t_now * 5))
-            if thick < 1: thick = 1
-            pygame.draw.circle(screen, BLUE, (W//2, H//2), v_rad, thick)
-            for _ in range(3):
-                tx, ty = random.randint(50, W-150), random.randint(50, H-100)
-                pygame.draw.rect(screen, BLUE, (tx, ty, 100, 40), 2)
-                perc = font_small.render(f"{random.randint(10,99)}%", True, BLUE)
-                screen.blit(perc, (tx + 5, ty + 5))
-            pygame.draw.line(screen, WHITE, (W//2-20, H//2), (W//2+20, H//2), 2)
-            pygame.draw.line(screen, WHITE, (W//2, H//2-20), (W//2, H//2+20), 2)
-
-        elif et == "error":
-            screen.fill((0, 0, 150))
-            header = font_body.render("*** TERMINAL ERROR ***", True, WHITE)
-            screen.blit(header, (W//2 - header.get_width()//2, 40))
-            line_count = int(p_ev * 12)
-            for i in range(line_count):
-                addr = f"0x00{random.randint(1000, 9999)}: CRITICAL_MEMORY_CORRUPTION"
-                txt = font_small.render(addr, True, WHITE)
-                screen.blit(txt, (40, 100 + i * 25))
-            if int(t_now * 4) % 2 == 0:
-                pygame.draw.rect(screen, WHITE, (40, 100 + line_count * 25, 15, 20))
-            draw_text_wrapped("SYSTEM WIRD NEU GESTARTET... BITTE RUHE BEWAHREN ODER AUFSEHER KONTAKTIEREN.", 40, H-80, font_small, WARN)
-
-        elif et == "chem":
-            r = int(127 + 127 * math.sin(t_now * 4))
-            g = int(127 + 127 * math.sin(t_now * 4 + 2))
-            b = int(127 + 127 * math.sin(t_now * 4 + 4))
-            tint((r, g, b), 80)
-            for _ in range(2):
-                ox, oy = random.randint(-8, 8), random.randint(-8, 8)
-                temp_surf = screen.copy(); temp_surf.set_alpha(100)
-                screen.blit(temp_surf, (ox, oy))
-            for i in range(5):
-                sy = int((t_now * 100 + i * 50) % H)
-                pygame.draw.line(screen, (255, 255, 255, 150), (0, sy), (W, sy + random.randint(-20, 20)), 2)
-            msg = "WAHRNEHMUNG +10 | INTELLIGENZ -5"
-            txt_surf = font_body.render(msg, True, WHITE)
-            tx = W//2 - txt_surf.get_width()//2 + int(math.sin(t_now * 3) * 10)
-            ty = H//2 - txt_surf.get_height()//2 + int(math.cos(t_now * 3) * 10)
-            screen.blit(txt_surf, (tx, ty))
-
-        elif et == "vision":
-            tint((100, 255, 100), 140)
-            pygame.draw.circle(screen, BLACK, (0, 0), 120, 0)
-            pygame.draw.circle(screen, BLACK, (W, 0), 120, 0)
-            pygame.draw.circle(screen, BLACK, (0, H), 120, 0)
-            pygame.draw.circle(screen, BLACK, (W, H), 120, 0)
-            for i in range(3):
-                scan_y = int((t_now * 200 + i * 150) % H)
-                s_line = pygame.Surface((W, 2), pygame.SRCALPHA); s_line.fill((255, 255, 255, 100))
-                screen.blit(s_line, (0, scan_y))
-            for _ in range(100):
-                rx, ry = random.randrange(W), random.randrange(H)
-                pygame.draw.rect(screen, (200, 255, 200), (rx, ry, 2, 2))
-            status_txt = font_small.render("NVG MODE: ACTIVE", True, WHITE)
-            if int(t_now * 2) % 2 == 0: pygame.draw.circle(screen, (255, 0, 0), (W - 200, H - 110), 8)
-            screen.blit(status_txt, (W - 180, H - 120))
-
-        elif et == "censored":
-            tint((40, 20, 0), 160)
-            for i in range(0, H, 40):
-                off = int(math.sin(t_now * 5 + i) * 20)
-                if (i // 40) % 2 == 0: pygame.draw.rect(screen, BLACK, (off, i, W, 25))
-            for _ in range(15):
-                char = random.choice(["&", "#", "X", "§", "%", "8", "0"])
-                tx, ty = random.randint(10, W-30), random.randint(10, H-30)
-                screen.blit(font_small.render(char, True, WARN), (tx, ty))
-            stempel = font_time.render("REDACTED", True, (200, 0, 0))
-            if random.random() > 0.1: screen.blit(stempel, (W//2 - stempel.get_width()//2, H//2 - stempel.get_height()//2))
-            draw_text_wrapped("ZUGRIFF VERWEIGERT. DIESER VORGANG WIRD PROTOKOLLIERT.", 80, H-120, font_small, WHITE)
-
-        if et != "emote" and et in EVENT_QUOTES:
-            draw_text_wrapped(EVENT_QUOTES[et], 40, 40, font_small, WHITE)
-        
-        if t_now - ev_start >= ev_dur: active_event = None
-
+    # --- GLOBALE EFFEKTE ---
     draw_edge_scan(t_now)
     s_lines = pygame.Surface((W, H), pygame.SRCALPHA)
     for y in range(0, H, 6):
         pygame.draw.line(s_lines, (0, 10, 0, 40), (0, y), (W, y), 1)
     screen.blit(s_lines, (0,0))
+
+    # Event Timer Check
+    if not active_event and t_now > next_event:
+        active_event = random.choice(EVENTS)
+        ev_start, ev_dur = t_now, random.randint(active_event["min"], active_event["max"])
+        next_event = t_now + random.randint(40, 90) # Schnellere Event-Abfolge
+    
     pygame.display.flip()
