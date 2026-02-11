@@ -61,7 +61,7 @@ def number_lessons(plan):
     n=1; out=[]
     for a,b,l in plan:
         if l=="UNTERRICHT":
-            l=f"UNTERRICHT {n}"
+            l=f"STUNDE {n}"
             n+=1
         out.append((a,b,l))
     return out
@@ -80,7 +80,7 @@ def get_status(now):
             total=e-s
             passed=cur-s
             return l,e-cur,passed/total
-    return "FREIZEIT",0,0
+    return "FEIERABEND",0,0
 
 def fmt(sec):
     m,s = divmod(int(sec),60)
@@ -141,8 +141,8 @@ def load_font(size):
     except: return pygame.font.SysFont("monospace",size)
 
 font_time  = load_font(68)
-font_body  = load_font(24)
-font_small = load_font(18)
+font_body  = load_font(30)
+font_small = load_font(22)
 
 bg = pygame.transform.scale(pygame.image.load(BG_PATH),(W,H))
 
@@ -227,7 +227,7 @@ while True:
 
     # Balken
     bar_y=H-26-18
-    draw_bar(60,bar_y,W-120,26,prog,is_pause,remain,label)
+    draw_bar(70,bar_y,W-120,26,prog,is_pause,remain,label)
 
     draw_edge_scan(time.time())
 
