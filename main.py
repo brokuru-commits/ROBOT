@@ -98,7 +98,7 @@ CRITL_QUOTES = {
     "neutral":[
         "System läuft. Ich auch.",
         "Alles stabil. Verdächtig stabil.",
-        "Ich halte das hier zusammen."
+        "Hö hö hö.... nur so :-)"
     ],
     "genervt":[
         "Nein, Martin. Einfach nein.",
