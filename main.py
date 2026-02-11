@@ -11,6 +11,7 @@ import pygame
 W, H = 640, 480
 FPS = 25
 
+# FARBEN
 GREEN      = (80, 255, 80)
 GREEN_SOFT = (120, 255, 120)
 DIM_GREEN  = (18, 55, 18)
@@ -20,6 +21,7 @@ ORANGE     = (255, 150, 50)
 BLACK      = (0, 0, 0)
 WHITE      = (255, 255, 255)
 
+# PFADE
 BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 ASSET_DIR = os.path.join(BASE_DIR, "assets")
 BG_PATH   = os.path.join(ASSET_DIR, "bg.png")
@@ -70,7 +72,7 @@ def clamp(x,a,b): return a if x<a else b if x>b else x
 def blend(c1,c2,t): return tuple(int(c1[i]+(c2[i]-c1[i])*t) for i in range(3))
 
 # ============================================================
-# KONFIGURATION
+# TEXTE & EVENTS
 # ============================================================
 CRITL_QUOTES = {
     "neutral": ["System läuft.", "Alles stabil.", "Guck nicht so!"],
@@ -107,12 +109,15 @@ font_time, font_body, font_small, font_v_small = load_font(75), load_font(32), l
 try: bg = pygame.transform.scale(pygame.image.load(BG_PATH),(W,H))
 except: bg = pygame.Surface((W,H)); bg.fill(BLACK)
 
-# Hamster optimiert auf 350x350
+# HAMSTER: 350x350 Pixel
 critl_imgs={}
 for k,p in CRITL_PATHS.items():
     try: critl_imgs[k]=pygame.transform.smoothscale(pygame.image.load(p).convert_alpha(),(350,350))
     except: critl_imgs[k]=None
 
+# ============================================================
+# ZEICHEN-HELFER
+# ============================================================
 def draw_text_wrapped(text, x, y, font, color, max_w=580):
     words = text.split(' '); lines = []; cur_l = ""
     for w_ in words:
@@ -123,31 +128,30 @@ def draw_text_wrapped(text, x, y, font, color, max_w=580):
         screen.blit(font.render(l.strip(), True, color), (x, y + i * (font.get_height() + 2)))
 
 def draw_bar(x, y, w, h, prog, is_pause, remain, label, t_start, t_end):
+    # Rahmen & Hintergrund
     pygame.draw.rect(screen, DIM_GREEN, (x, y, w, h))
     pygame.draw.rect(screen, GREEN, (x, y, w, h), 3)
+    
+    # Füllung
     col = BLUE if is_pause else (blend(GREEN, WARN, 1-remain/120) if remain <= 120 else GREEN)
     fill_w = int((w - 6) * prog)
     if fill_w > 0: pygame.draw.rect(screen, col, (x + 3, y + 3, fill_w, h - 6))
     
-    # Text-Zusammenbau: Zeit | Label | Countdown
-    time_str = f"{t_start}-{t_end}"
-    main_str = f"| {label} |"
-    cd_str = f"NOCH {fmt(remain)}" if remain > 0 else ""
+    # Text zusammenbauen (Einheitlich)
+    full_text = f"{t_start}-{t_end} | {label}"
+    if remain > 0: full_text += f" | NOCH {fmt(remain)}"
     
-    s_time = font_v_small.render(time_str, True, WHITE)
-    s_main = font_small.render(f"{main_str} {cd_str}", True, GREEN_SOFT)
-    s_main_d = font_small.render(f"{main_str} {cd_str}", True, BLACK)
+    s_light = font_small.render(full_text, True, GREEN_SOFT)
+    s_dark  = font_small.render(full_text, True, BLACK)
     
-    total_w = s_time.get_width() + 10 + s_main.get_width()
-    tx = x + (w - total_w) // 2
-    ty = y + (h - s_main.get_height()) // 2
+    tx = x + (w - s_light.get_width()) // 2
+    ty = y + (h - s_light.get_height()) // 2
     
+    # Clipping für Invertierungs-Effekt
     screen.set_clip(pygame.Rect(x+3, y+3, fill_w, h-6))
-    screen.blit(s_time, (tx, ty + 4)) 
-    screen.blit(s_main_d, (tx + s_time.get_width() + 10, ty))
+    screen.blit(s_dark, (tx, ty))
     screen.set_clip(pygame.Rect(x+3+fill_w, y+3, w-6-fill_w, h-6))
-    screen.blit(s_time, (tx, ty + 4))
-    screen.blit(s_main, (tx + s_time.get_width() + 10, ty))
+    screen.blit(s_light, (tx, ty))
     screen.set_clip(None)
 
 def draw_edge_scan(t):
@@ -165,10 +169,14 @@ def tint(color, alpha):
 
 def draw_status_icons(t):
     start_x, y, r, g, b = W - 110, 20, 80, 255, 80
+    
+    # WiFi
     w_v = int(100 + 100 * math.sin(t * 0.8))
     s_w = pygame.Surface((34,34), pygame.SRCALPHA)
     for i in range(3): pygame.draw.arc(s_w, (r, g, b, w_v), (5+i*4, 8+i*4, 24-i*8, 24-i*8), math.pi/4, 3*math.pi/4, 2)
     screen.blit(s_w, (start_x, y))
+    
+    # Rad
     r_v = int(100 + 100 * math.sin(t * 0.5))
     s_r = pygame.Surface((34,34), pygame.SRCALPHA); c=(17,17)
     pygame.draw.circle(s_r, (r, g, b, r_v), c, 4)
@@ -178,6 +186,8 @@ def draw_status_icons(t):
         p2 = (c[0] + 14 * math.cos(ang + 0.5), c[1] + 14 * math.sin(ang + 0.5))
         pygame.draw.polygon(s_r, (r, g, b, r_v), [c, p1, p2])
     screen.blit(s_r, (start_x + 35, y))
+    
+    # Blitz
     bc = (200, 255, 200, 255) if random.random() > 0.98 else (r//2, g//2, b//2, 100)
     s_b = pygame.Surface((34,34), pygame.SRCALPHA)
     pts = [(17, 4), (24, 16), (17, 16), (20, 30), (10, 16), (17, 16)]
@@ -207,63 +217,64 @@ while True:
         p_ev = clamp((t_now - ev_start) / ev_dur, 0, 1)
         et = active_event["type"]
 
-        # 1. RADS (Grüner Nebel + Rauschen)
+        # 1. RADS (Massives Rauschen)
         if et == "rads":
             tint((0, 255, 0), 60)
             wave_y = int((t_now * 150) % H)
             pygame.draw.rect(screen, (0, 255, 0, 40), (0, wave_y, W, 60))
             tint((0, 255, 0), int(30 + 20 * math.sin(t_now * 10)))
-            # Hier: Das aggressive Pixel-Rauschen ist wieder da!
-            for _ in range(250): screen.set_at((random.randrange(W), random.randrange(H)), GREEN)
+            for _ in range(1000): # 1000 Partikel
+                screen.set_at((random.randrange(W), random.randrange(H)), GREEN)
 
-        # 2. CRITICAL (Silent Alarm + Shake + Copy-Glitch)
+        # 2. CRITICAL (Screen Shake & Glitch)
         elif et == "critical":
             tint((100, 0, 0), 80)
             shake = int(2 + 28 * p_ev)
             ox, oy = random.randint(-shake, shake), random.randint(-shake, shake)
-            # Hier: Wir nutzen screen.copy für den Glitch-Effekt
-            screen.blit(screen.copy(), (ox, oy))
-            if math.sin(t_now * (5 + 25 * p_ev)) > 0: tint((255, 0, 0), int(50 + 70 * p_ev))
+            screen.blit(screen.copy(), (ox, oy)) # Glitch
+            if math.sin(t_now * (5 + 25 * p_ev)) > 0: 
+                tint((255, 0, 0), int(50 + 70 * p_ev))
 
-        # 3. VATS (Gitter + Zielsystem + Text)
+        # 3. VATS (Gitter & Scan)
         elif et == "vats":
             tint((0, 0, 100), 50)
             pygame.draw.rect(screen, BLUE, (0,0,W,H), 12)
-            # Hier: Die Gitterlinien sind wieder da!
-            for i in range(0, W, 20): pygame.draw.line(screen, (0, 50, 150), (i, 0), (i, H), 1)
-            for i in range(0, H, 20): pygame.draw.line(screen, (0, 50, 150), (0, i), (W, i), 1)
-            
+            # Gitterlinien
+            for i in range(0, W, 40): pygame.draw.line(screen, (0, 60, 180), (i, 0), (i, H), 1)
+            for i in range(0, H, 40): pygame.draw.line(screen, (0, 60, 180), (0, i), (W, i), 1)
             v_rad = int(250 * p_ev)
             pygame.draw.circle(screen, BLUE, (W//2,H//2), max(5, v_rad), 2)
             for _ in range(3):
                 tx, ty = random.randint(50, W-150), random.randint(50, H-100)
                 screen.blit(font_small.render(f"{random.randint(10,99)}%", True, BLUE), (tx, ty))
 
-        # 4. ERROR (Stack Overflow Text)
+        # 4. ERROR (Textzeilen)
         elif et == "error":
             screen.fill((0, 0, 150))
             for i in range(int(p_ev * 15)):
                 txt = font_small.render(f"0x00{random.randint(1000, 9999)}: STACK_OVERFLOW", True, WHITE)
                 screen.blit(txt, (40, 60 + i * 25))
 
-        # 5. CHEM (Farb-Trip)
+        # 5. CHEM (Farbverlauf)
         elif et == "chem":
-            r, g, b = int(127+127*math.sin(t_now*4)), int(127+127*math.sin(t_now*4+2)), int(127+127*math.sin(t_now*4+4))
+            r = int(127+127*math.sin(t_now*4))
+            g = int(127+127*math.sin(t_now*4+2))
+            b = int(127+127*math.sin(t_now*4+4))
             tint((r, g, b), 120)
 
-        # 6. VISION (Nachtsicht + 3 Scanlinien + Rauschen)
+        # 6. VISION (3 Scanlinien + Rauschen)
         elif et == "vision":
             vp = int(130 + 30 * math.sin(t_now * 1.5))
             tint((100, 255, 100), vp)
-            # Hier: Alle 3 Scan-Linien mit unterschiedlichen Tempos
             for i in range(3):
                 sy = int((t_now * [150, 250, 400][i] + i * 100) % H)
-                s_l = pygame.Surface((W, 3), pygame.SRCALPHA); s_l.fill((255, 255, 255, 60))
+                s_l = pygame.Surface((W, 3), pygame.SRCALPHA)
+                s_l.fill((255, 255, 255, 60))
                 screen.blit(s_l, (0, sy))
-            # Hier: Nachtsicht-Rauschen
-            for _ in range(120): screen.set_at((random.randrange(W), random.randrange(H)), (180, 255, 180))
+            for _ in range(300): 
+                screen.set_at((random.randrange(W), random.randrange(H)), (180, 255, 180))
 
-        # 7. CENSORED (Balken + Redacted)
+        # 7. CENSORED (Schwarze Balken)
         elif et == "censored":
             tint((20, 10, 0), 200)
             for i in range(0, H, 40):
@@ -272,7 +283,7 @@ while True:
             st = font_time.render("REDACTED", True, (200, 0, 0))
             screen.blit(st, (W//2 - st.get_width()//2, H//2 - st.get_height()//2))
 
-        # 8. EMOTE (Kurzes Bild)
+        # 8. EMOTE
         elif et == "emote":
             ei = critl_imgs.get(random.randint(1,4))
             if ei: screen.blit(pygame.transform.scale(ei, (W,H)), (0,0))
@@ -280,35 +291,44 @@ while True:
         if t_now - ev_start >= ev_dur: active_event = None
 
     else:
-        # --- DASHBOARD ---
+        # --- DASHBOARD (HOMESCREEN) ---
         mood = "müde" if is_p else ("genervt" if remain <= 120 else "neutral")
         img = critl_imgs.get(1 if mood=="neutral" else (2 if mood=="genervt" else 3))
+        
+        # Hamster (350px)
         if img: screen.blit(img, (W - 360, 40)) 
         
+        # UI
         screen.blit(font_time.render(now.strftime("%H:%M"), True, GREEN), (30, 30))
         draw_status_icons(t_now)
         wd = {"Monday":"MONTAG","Tuesday":"DIENSTAG","Wednesday":"MITTWOCH","Thursday":"DONNERSTAG","Friday":"FREITAG","Saturday":"SAMSTAG","Sunday":"SONNTAG"}
         screen.blit(font_body.render(f"{wd.get(now.strftime('%A'),'TAG')}, {now.strftime('%d.%m.')}", True, GREEN_SOFT), (35, 110))
         
+        # Smilie
         if t_now - last_face_change > 5:
             all_faces = ["(o_o)", "[O.O]", "( -_-)", "<o_o>", "(u_u)", "(^.^)", "(⌐■_■)", "(◕‿◕)"]
             active_face = random.choice(all_faces); last_face_change = t_now
         screen.blit(font_body.render(active_face, True, (20, 100, 20)), (37, 182))
         screen.blit(font_body.render(active_face, True, GREEN), (35, 180))
         
-        # DER BALKEN MIT ZEITBEREICH
+        # Balken (Vereint)
         draw_bar(20, H-80, 600, 45, prog, is_p, remain, label, t_s, t_e)
         
+        # Zitat
         if not active_quote and t_now > next_quote:
             active_quote, q_until, next_quote = random.choice(CRITL_QUOTES[mood]), t_now+6, t_now+random.randint(30,60)
         if active_quote: draw_text_wrapped("CRITL: "+active_quote, 35, H-130, font_small, GREEN_SOFT)
 
+    # Global
     draw_edge_scan(t_now)
     sl = pygame.Surface((W, H), pygame.SRCALPHA)
     for y in range(0, H, 6): pygame.draw.line(sl, (0, 10, 0, 40), (0, y), (W, y), 1)
     screen.blit(sl, (0,0))
+    
+    # Event Trigger
     if not active_event and t_now > next_event:
         active_event = random.choice(EVENTS)
         ev_start, ev_dur = t_now, random.randint(active_event["min"], active_event["max"])
         next_event = t_now + random.randint(180, 600)
+    
     pygame.display.flip()
