@@ -215,7 +215,6 @@ while True:
         # --- FEATURE: HAMSTER KLICK = EVENT STARTEN ---
         if e.type == pygame.MOUSEBUTTONDOWN:
             mx, my = pygame.mouse.get_pos()
-            # Hamster ist bei x=W-360, y=40, Größe=350x350
             hamster_rect = pygame.Rect(W - 360, 40, 350, 350)
             if hamster_rect.collidepoint(mx, my):
                 active_event = random.choice(EVENTS)
@@ -233,34 +232,32 @@ while True:
         et = active_event["type"]
 
         # =======================================================
-        # 1. RADS (Radioaktivität + Geiger-Zähler)
+        # 1. RADS (Radioaktivität - TEXT ONLY MODE)
         # =======================================================
         if et == "rads":
-            tint((0, 255, 0), 60)
-            wave_y = int((t_now * 150) % H)
-            pygame.draw.rect(screen, (0, 255, 0, 40), (0, wave_y, W, 60))
-            tint((0, 255, 0), int(30 + 20 * math.sin(t_now * 10)))
-            # EXTREMES Rauschen
-            for _ in range(1500): 
+            # Grüne Tönung + Rauschen (Kein Scan-Balken mehr)
+            tint((0, 255, 0), 50)
+            for _ in range(1000): 
                 screen.set_at((random.randrange(W), random.randrange(H)), GREEN)
             
-            # Geiger-Zähler Nadel oben
-            gx, gy = W//2, 80
-            pygame.draw.arc(screen, BLACK, (gx-60, gy-60, 120, 120), math.pi, 2*math.pi, 50) # Hintergrund
-            pygame.draw.arc(screen, GREEN, (gx-60, gy-60, 120, 120), math.pi, 2*math.pi, 4) # Rahmen
-            # Zitternde Nadel
-            jitter = math.sin(t_now * 30) * 1.5 + (random.random()-0.5)
-            nx = gx + 50 * math.cos(math.pi * 1.5 + jitter)
-            ny = gy + 50 * math.sin(math.pi * 1.5 + jitter)
-            pygame.draw.line(screen, RED, (gx, gy), (nx, ny), 3)
-            screen.blit(font_small.render("RADS", True, GREEN), (gx-25, gy+10))
+            # Text-Datenstrom (Links)
+            isotopes = ["U-235", "Pu-239", "Cs-137", "I-131", "Sr-90", "Co-60"]
+            for i in range(5):
+                iso = isotopes[(int(t_now) + i) % len(isotopes)]
+                val = random.randint(400, 9999)
+                txt_str = f"SENSOR_0{i+1}: {iso} ... {val} mSv"
+                screen.blit(font_small.render(txt_str, True, GREEN_SOFT), (40, 80 + i * 35))
 
-            if int(t_now * 5) % 2 == 0:
-                warnt = font_body.render("!! WARNING !!", True, BLACK, GREEN)
-                screen.blit(warnt, (W//2 - warnt.get_width()//2, 130))
+            # Dezente Warnung (Unten)
+            if int(t_now * 2) % 2 == 0:
+                warn_rect = pygame.Rect(40, H-160, 250, 30)
+                pygame.draw.rect(screen, DIM_GREEN, warn_rect)
+                pygame.draw.rect(screen, GREEN, warn_rect, 1)
+                lbl = font_v_small.render("WARNING: HAZARDOUS ENVIRONMENT", True, GREEN)
+                screen.blit(lbl, (50, H-155))
 
         # =======================================================
-        # 2. CRITICAL (Hardware Failure + Glitch)
+        # 2. CRITICAL
         # =======================================================
         elif et == "critical":
             tint((100, 0, 0), 80)
@@ -268,23 +265,19 @@ while True:
             ox, oy = random.randint(-shake, shake), random.randint(-shake, shake)
             screen.blit(screen.copy(), (ox, oy))
             if math.sin(t_now * (5 + 25 * p_ev)) > 0: tint((255, 0, 0), int(50 + 70 * p_ev))
-            
-            # Zufällige Error-Blöcke
             if random.random() > 0.8:
                 bx, by = random.randint(0, W), random.randint(0, H)
                 pygame.draw.rect(screen, WHITE, (bx, by, random.randint(50,150), random.randint(10,50)))
 
         # =======================================================
-        # 3. VATS (Taktischer Modus + Rotation)
+        # 3. VATS
         # =======================================================
         elif et == "vats":
             tint(DIM_BLUE, 80)
             pygame.draw.rect(screen, BLUE, (0,0,W,H), 8)
-            # Grid
             for i in range(0, W, 40): pygame.draw.line(screen, (0, 60, 180), (i, 0), (i, H), 1)
             for i in range(0, H, 40): pygame.draw.line(screen, (0, 60, 180), (0, i), (W, i), 1)
             
-            # Rotierendes Ziel-System
             cx, cy = W//2, H//2
             ang = t_now * 2
             for i in range(4):
@@ -297,13 +290,11 @@ while True:
             v_rad = int(250 * p_ev)
             if v_rad > 10: pygame.draw.circle(screen, BLUE, (cx, cy), v_rad, 2)
 
-            # HUD RECHTS
             parts = ["HEAD", "TORSO", "L.ARM", "R.ARM", "LEGS"]
             active_part = parts[int(t_now * 2) % len(parts)]
             for i, p in enumerate(parts):
                 col = WHITE if p == active_part else (0, 100, 200)
                 txt = font_small.render(f"[{'X' if p==active_part else ' '}] {p} - {random.randint(20,95)}%", True, col)
-                # Verbindungslinie zum Text
                 lx, ly = W - 210, 115 + i * 30
                 if p == active_part: pygame.draw.line(screen, BLUE, (cx, cy), (lx, ly), 1)
                 screen.blit(txt, (W - 200, 100 + i * 30))
@@ -314,7 +305,7 @@ while True:
             screen.blit(font_v_small.render("CRIT CHANCE", True, BLUE), (50, H-85))
 
         # =======================================================
-        # 4. ERROR (Blue Screen + Memory Dump)
+        # 4. ERROR
         # =======================================================
         elif et == "error":
             screen.fill((0, 0, 150))
@@ -322,7 +313,6 @@ while True:
                 txt = font_small.render(f"0x{random.randint(1000,9999)}F: SEGMENTATION_FAULT_CORE_{i}", True, WHITE)
                 screen.blit(txt, (40, 60 + i * 25))
             
-            # QR Code Rauschen Block
             for qy in range(100, 200, 5):
                 for qx in range(400, 500, 5):
                     if random.random() > 0.5: pygame.draw.rect(screen, WHITE, (qx, qy, 5, 5))
@@ -333,26 +323,22 @@ while True:
             screen.blit(font_small.render("DUMPING PHYSICAL MEMORY TO DISK...", True, WHITE), (70, H-90))
 
         # =======================================================
-        # 5. CHEM (Double Vision / Ghosting)
+        # 5. CHEM
         # =======================================================
         elif et == "chem":
-            # Basis-Screen rendern wir normal, dann legen wir eine "Geister"-Kopie drüber
             r = int(127+127*math.sin(t_now*4))
             g = int(127+127*math.sin(t_now*4+2))
             b = int(127+127*math.sin(t_now*4+4))
             tint((r, g, b), 80)
-            
-            # Wobbly Effekt simulieren durch Versatz
             off_x = int(math.sin(t_now * 5) * 10)
             off_y = int(math.cos(t_now * 5) * 10)
-            # Wir nehmen einfach den Hamster als "Geist"
             if img: 
                 ghost = img.copy()
                 ghost.set_alpha(100)
                 screen.blit(ghost, (W - 360 + off_x, 40 + off_y))
 
         # =======================================================
-        # 6. VISION (Tactical Night Vision + Vignette)
+        # 6. VISION
         # =======================================================
         elif et == "vision":
             vp = int(130 + 30 * math.sin(t_now * 1.5))
@@ -362,18 +348,13 @@ while True:
                 s_l = pygame.Surface((W, 3), pygame.SRCALPHA); s_l.fill((255, 255, 255, 60))
                 screen.blit(s_l, (0, sy))
             
-            # Fernglas-Maske (Vignette)
-            pygame.draw.circle(screen, BLACK, (W//2, H//2), 350, 100) # Großer Ring außen
-            
-            # Fadenkreuze
+            pygame.draw.circle(screen, BLACK, (W//2, H//2), 350, 100) 
             cx, cy = W//2, H//2
             pygame.draw.line(screen, GREEN_SOFT, (cx-40, cy), (cx+40, cy), 1)
             pygame.draw.line(screen, GREEN_SOFT, (cx, cy-40), (cx, cy+40), 1)
-            # Entfernungsmesser
             dist = int(140 + math.sin(t_now)*10)
             screen.blit(font_v_small.render(f"DIST: {dist}m", True, GREEN), (cx+50, cy+50))
 
-            # Kompass
             for i in range(0, W, 50):
                 off = (i + int(t_now * 50)) % W
                 pygame.draw.line(screen, GREEN_SOFT, (off, 0), (off, 15), 2)
@@ -385,7 +366,7 @@ while True:
             screen.blit(font_v_small.render("BATT", True, GREEN), (W-70, 5))
 
         # =======================================================
-        # 7. CENSORED (Schloss + Access Denied)
+        # 7. CENSORED
         # =======================================================
         elif et == "censored":
             for y in range(0, H, 20):
@@ -395,10 +376,9 @@ while True:
                 screen.blit(font_v_small.render(line, True, col), (-off_x, y))
             tint(BLACK, 150)
             
-            # Schloss Symbol malen
             lx, ly = W//2 - 25, H//2 - 120
-            pygame.draw.rect(screen, RED, (lx, ly+40, 50, 40)) # Körper
-            pygame.draw.arc(screen, RED, (lx, ly, 50, 50), 0, math.pi, 3) # Bügel
+            pygame.draw.rect(screen, RED, (lx, ly+40, 50, 40)) 
+            pygame.draw.arc(screen, RED, (lx, ly, 50, 50), 0, math.pi, 3) 
             
             if int(t_now * 4) % 2 == 0:
                 box_rect = (W//2 - 200, H//2 - 60, 400, 160)
@@ -418,7 +398,6 @@ while True:
         # =======================================================
         elif et == "emote":
             ei = critl_imgs.get(random.randint(1,4))
-            # Kleiner "Bounce" Effekt beim Erscheinen
             scale = 1.0 + 0.1 * math.sin(t_now * 10)
             if ei: 
                 w_new, h_new = int(W*scale), int(H*scale)
