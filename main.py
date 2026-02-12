@@ -460,7 +460,7 @@ while True:
         if img: screen.blit(img, (W - 360, 40)) 
         
         pi_temp, pi_watts = get_pi_stats()
-        stat_text = font_v_small.render(f"TEMP: {pi_temp:.1f}C  PWR: {pi_watts:.1f}W", True, GREEN)
+        stat_text = font_v_small.render(f"TEMP: {pi_temp:.1f}C  PWR: {pi_watts:.1f}W", True, GREEN_SOFT)
         screen.blit(stat_text, (20, 10))
         screen.blit(font_time.render(now.strftime("%H:%M"), True, GREEN), (30, 45))
         
