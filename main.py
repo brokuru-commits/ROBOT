@@ -32,6 +32,10 @@ FONT_PATH = os.path.join(ASSET_DIR, "Monofonto.ttf")
 TXT_PATH  = os.path.join(ASSET_DIR, "emotions.txt")
 ART_PATH  = os.path.join(ASSET_DIR, "art.txt") 
 
+# DEBUG OUTPUT
+print("--- STARTE CRITL OS V2.1 ---")
+print(f"Checke Asset-Ordner: {ASSET_DIR}")
+
 CRITL_PATHS = {
     1: os.path.join(ASSET_DIR, "1.png"), 
     2: os.path.join(ASSET_DIR, "2.png"),
@@ -114,14 +118,20 @@ def load_quotes():
     return data
 
 def load_faces():
-    faces = ["(o_o)", "(>_<)", "(O_O)"]
+    faces = ["NO FILE", "CHECK", "ASSETS"]
     if os.path.exists(ART_PATH):
         try:
             with open(ART_PATH, "r", encoding="utf-8") as f:
                 loaded = [line.strip() for line in f if line.strip()]
             if loaded:
+                print(f"OK: {len(loaded)} ASCII-Arts geladen.")
                 faces = loaded
-        except: pass
+            else:
+                faces = ["FILE", "EMPTY"]
+        except Exception as e:
+            print(f"Error reading art.txt: {e}")
+    else:
+        print("WARNUNG: art.txt fehlt!")
     return faces
 
 # ============================================================
@@ -131,7 +141,6 @@ CRITL_QUOTES = load_quotes()
 CRITL_FACES = load_faces() 
 
 EVENTS = [
-    # Die großen Events
     {"type":"rads",     "min":25, "max":45},
     {"type":"critical", "min":30, "max":45},
     {"type":"vats",     "min":20, "max":40},
@@ -140,7 +149,6 @@ EVENTS = [
     {"type":"vision",   "min":25, "max":45},
     {"type":"censored", "min":20, "max":45},
     {"type":"emote",    "min":10, "max":15},
-    # Die Mini-Events
     {"type":"glitch_blue", "min":3, "max":5},
     {"type":"glitch_green","min":3, "max":5},
     {"type":"glitch_blue", "min":3, "max":5}, 
@@ -161,19 +169,19 @@ def load_font(size):
 
 font_time, font_body, font_small, font_v_small = load_font(75), load_font(32), load_font(24), load_font(18)
 
-# ROBUSTER FONT LOADER FÜR UNICODE ART
-# Versucht verschiedene Fonts, die auf Linux/Pi oft installiert sind
+# ROBUSTER FONT LOADER
 font_smilie = None
-possible_fonts = ["dejavu sans", "noto sans", "arial", "segoe ui", "symbola"]
+possible_fonts = ["dejavu sans", "noto sans", "arial", "segoe ui", "symbola", "freesans"]
 for f_name in possible_fonts:
     try:
-        font_smilie = pygame.font.SysFont(f_name, 32, bold=True)
-        break
+        f = pygame.font.SysFont(f_name, 32, bold=True)
+        if f: 
+            font_smilie = f
+            break
     except: continue
 
 if not font_smilie:
     font_smilie = pygame.font.SysFont(None, 35, bold=True)
-
 
 try: bg = pygame.transform.scale(pygame.image.load(BG_PATH),(W,H))
 except: bg = pygame.Surface((W,H)); bg.fill(BLACK)
@@ -254,7 +262,7 @@ active_event, ev_start, ev_dur = None, 0, 0
 next_event = time.time() + 120 
 
 active_quote, q_until, next_quote = "", 0, time.time()+20
-active_face, last_face_change = "(o_o)", 0
+active_face, last_face_change = "INIT", 0 
 
 while True:
     t_now = time.time()
@@ -278,7 +286,6 @@ while True:
     for e in pygame.event.get():
         if e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_q): pygame.quit(); sys.exit()
         
-        # HAMSTER KLICK
         if e.type == pygame.MOUSEBUTTONDOWN:
             mx, my = pygame.mouse.get_pos()
             if pygame.Rect(W - 360, 40, 350, 350).collidepoint(mx, my):
@@ -296,7 +303,6 @@ while True:
         p_ev = clamp((t_now - ev_start) / ev_dur, 0, 1)
         et = active_event["type"]
 
-        # --- MINI EVENTS ---
         if et == "glitch_blue":
             tint((0, 50, 100), 40)
             sy = int(p_ev * H)
@@ -307,7 +313,6 @@ while True:
             for _ in range(600):
                 screen.set_at((random.randrange(W), random.randrange(H)), (100, 255, 100))
 
-        # --- GROSSE EVENTS ---
         elif et == "rads":
             tint((0, 255, 0), 50)
             for _ in range(1000): 
@@ -351,4 +356,143 @@ while True:
             if v_rad > 10: pygame.draw.circle(screen, BLUE, (cx, cy), v_rad, 2)
             parts = ["HEAD", "TORSO", "L.ARM", "R.ARM", "LEGS"]
             active_part = parts[int(t_now * 2) % len(parts)]
-            for
+            # BUGFIX HIER: Zeile war zu lang/komplex
+            for i, p in enumerate(parts):
+                col = WHITE if p == active_part else (0, 100, 200)
+                mark = "X" if p == active_part else " "
+                val_perc = random.randint(20, 95)
+                # Sicherer String-Aufbau
+                text_content = f"[{mark}] {p} - {val_perc}%"
+                txt = font_small.render(text_content, True, col)
+                
+                lx, ly = W - 210, 115 + i * 30
+                if p == active_part: pygame.draw.line(screen, BLUE, (cx, cy), (lx, ly), 1)
+                screen.blit(txt, (W - 200, 100 + i * 30))
+            pygame.draw.rect(screen, (0, 50, 100), (50, H-60, 200, 20))
+            fill = int((math.sin(t_now*3)+1)/2 * 200)
+            pygame.draw.rect(screen, BLUE, (50, H-60, fill, 20))
+            screen.blit(font_v_small.render("CRIT CHANCE", True, BLUE), (50, H-85))
+
+        elif et == "error":
+            screen.fill((0, 0, 150))
+            for i in range(int(p_ev * 12)):
+                txt = font_small.render(f"0x{random.randint(1000,9999)}F: SEGMENTATION_FAULT_CORE_{i}", True, WHITE)
+                screen.blit(txt, (40, 60 + i * 25))
+            for qy in range(100, 200, 5):
+                for qx in range(400, 500, 5):
+                    if random.random() > 0.5: pygame.draw.rect(screen, WHITE, (qx, qy, 5, 5))
+            bar_w = int(p_ev * 500)
+            pygame.draw.rect(screen, WHITE, (70, H-60, 500, 20), 2)
+            pygame.draw.rect(screen, WHITE, (74, H-56, bar_w, 12))
+            screen.blit(font_small.render("DUMPING PHYSICAL MEMORY TO DISK...", True, WHITE), (70, H-90))
+
+        elif et == "chem":
+            r = int(127+127*math.sin(t_now*4))
+            g = int(127+127*math.sin(t_now*4+2))
+            b = int(127+127*math.sin(t_now*4+4))
+            tint((r, g, b), 80)
+            off_x = int(math.sin(t_now * 5) * 10)
+            off_y = int(math.cos(t_now * 5) * 10)
+            if img: 
+                ghost = img.copy()
+                ghost.set_alpha(100)
+                screen.blit(ghost, (W - 360 + off_x, 40 + off_y))
+
+        elif et == "vision":
+            vp = int(130 + 30 * math.sin(t_now * 1.5))
+            tint((100, 255, 100), vp)
+            for i in range(3):
+                sy = int((t_now * [150, 250, 400][i] + i * 100) % H)
+                s_l = pygame.Surface((W, 3), pygame.SRCALPHA); s_l.fill((255, 255, 255, 60))
+                screen.blit(s_l, (0, sy))
+            pygame.draw.circle(screen, BLACK, (W//2, H//2), 350, 100) 
+            cx, cy = W//2, H//2
+            pygame.draw.line(screen, GREEN_SOFT, (cx-40, cy), (cx+40, cy), 1)
+            pygame.draw.line(screen, GREEN_SOFT, (cx, cy-40), (cx, cy+40), 1)
+            dist = int(140 + math.sin(t_now)*10)
+            screen.blit(font_v_small.render(f"DIST: {dist}m", True, GREEN), (cx+50, cy+50))
+            for i in range(0, W, 50):
+                off = (i + int(t_now * 50)) % W
+                pygame.draw.line(screen, GREEN_SOFT, (off, 0), (off, 15), 2)
+                if i % 100 == 0: screen.blit(font_v_small.render(f"{i}", True, GREEN_SOFT), (off-10, 20))
+            batt_w = int(50 - (p_ev * 50))
+            pygame.draw.rect(screen, GREEN, (W-70, 20, 50, 15), 1)
+            pygame.draw.rect(screen, GREEN, (W-70+1, 21, batt_w, 13))
+            screen.blit(font_v_small.render("BATT", True, GREEN), (W-70, 5))
+
+        elif et == "censored":
+            for y in range(0, H, 20):
+                line = "CONFIDENTIAL " * 10
+                off_x = int(t_now * 20) % 100
+                col = (30, 10, 0)
+                screen.blit(font_v_small.render(line, True, col), (-off_x, y))
+            tint(BLACK, 150)
+            lx, ly = W//2 - 25, H//2 - 120
+            pygame.draw.rect(screen, RED, (lx, ly+40, 50, 40)) 
+            pygame.draw.arc(screen, RED, (lx, ly, 50, 50), 0, math.pi, 3) 
+            if int(t_now * 4) % 2 == 0:
+                box_rect = (W//2 - 200, H//2 - 60, 400, 160)
+                pygame.draw.rect(screen, BLACK, box_rect)
+                pygame.draw.rect(screen, RED, box_rect, 5)
+                txt1 = font_body.render("ACCESS DENIED", True, RED)
+                txt2 = font_small.render("SECURITY CLEARANCE REQUIRED", True, RED)
+                screen.blit(txt1, (W//2 - txt1.get_width()//2, H//2 - 20))
+                screen.blit(txt2, (W//2 - txt2.get_width()//2, H//2 + 30))
+                bar_x, bar_y = W//2 - 150, H//2 + 70
+                pygame.draw.rect(screen, RED, (bar_x, bar_y, 300, 20), 1)
+                prog_w = int((t_now % 1) * 300)
+                pygame.draw.rect(screen, RED, (bar_x+2, bar_y+2, prog_w, 16))
+
+        elif et == "emote":
+            ei = critl_imgs.get(random.randint(1,4))
+            scale = 1.0 + 0.1 * math.sin(t_now * 10)
+            if ei: 
+                w_new, h_new = int(W*scale), int(H*scale)
+                scaled_img = pygame.transform.scale(ei, (w_new, h_new))
+                screen.blit(scaled_img, (W//2 - w_new//2, H//2 - h_new//2))
+
+        if t_now - ev_start >= ev_dur: active_event = None
+
+    else:
+        # --- DASHBOARD ---
+        mood = "müde" if is_p else ("genervt" if remain <= 120 else "neutral")
+        img = critl_imgs.get(1 if mood=="neutral" else (2 if mood=="genervt" else 3))
+        if img: screen.blit(img, (W - 360, 40)) 
+        
+        pi_temp, pi_watts = get_pi_stats()
+        stat_text = font_v_small.render(f"TEMP: {pi_temp:.1f}C  PWR: {pi_watts:.1f}W", True, GRAY)
+        screen.blit(stat_text, (20, 10))
+        screen.blit(font_time.render(now.strftime("%H:%M"), True, GREEN), (30, 45))
+        
+        draw_status_icons(t_now)
+        wd = {"Monday":"MONTAG","Tuesday":"DIENSTAG","Wednesday":"MITTWOCH","Thursday":"DONNERSTAG","Friday":"FREITAG","Saturday":"SAMSTAG","Sunday":"SONNTAG"}
+        screen.blit(font_body.render(f"{wd.get(now.strftime('%A'),'TAG')}, {now.strftime('%d.%m.')}", True, GREEN_SOFT), (35, 120))
+        
+        # SMILIE AUS DATEI
+        if t_now - last_face_change > 5:
+            if CRITL_FACES:
+                active_face = random.choice(CRITL_FACES)
+            else:
+                active_face = "NO FILE"
+            last_face_change = t_now
+        
+        # Rendern
+        screen.blit(font_smilie.render(active_face, True, (20, 100, 20)), (37, 182))
+        screen.blit(font_smilie.render(active_face, True, GREEN), (35, 180))
+        
+        draw_bar(20, H-80, 600, 45, prog, is_p, remain, label, t_s, t_e)
+        
+        if not active_quote and t_now > next_quote:
+            active_quote, q_until, next_quote = random.choice(CRITL_QUOTES[mood]), t_now+6, t_now+random.randint(30,60)
+        
+        if active_quote: draw_text_wrapped("CRITL: "+active_quote, 35, H-175, font_small, GREEN_SOFT)
+
+    draw_edge_scan(t_now)
+    sl = pygame.Surface((W, H), pygame.SRCALPHA)
+    for y in range(0, H, 6): pygame.draw.line(sl, (0, 10, 0, 40), (0, y), (W, y), 1)
+    screen.blit(sl, (0,0))
+    if not active_event and t_now > next_event:
+        active_event = random.choice(EVENTS)
+        ev_start, ev_dur = t_now, random.randint(active_event["min"], active_event["max"])
+        next_event = t_now + random.randint(120, 300) 
+    pygame.display.flip()
