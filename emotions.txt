@@ -1,51 +1,43 @@
-1 | SYSTEMSTATUS: OPTIMAL
-1 | SCHÖNER TAG ZUM STRAHLEN!
-1 | KERNELEMENTE BEI 100%
-1 | KAFFEE GEFUNDEN. SYSTEM GLÜCKLICH.
-1 | SUMM SUMM... ALLES OKAY.
-1 | KEINE KRITISCHEN FEHLER GEFUNDEN.
-1 | RAD-LEVELS IM GRÜNEN BEREICH.
-1 | ICH MAG DICH, MENSCH.
-1 | ALLE SCHALTKREISE SCHNURREN.
-1 | LÄCHELN UND WEITERARBEITEN!
-1 | GUTE LAUNE MODUS AKTIVIERT.
-1 | ICH HABE EINEN RADIOAKTIVEN KEKS GEFUNDEN!
+neutral: Alle Systeme laufen innerhalb normaler Parameter. Keine Anomalien im Klassenzimmer entdeckt.
+neutral: Scan läuft... Scan läuft... Langweilig. Hast du vielleicht eine Sonnenblumenkern.exe für mich?
+neutral: Umgebungstemperatur akzeptabel. Radioaktivität niedrig. Motivation des Users: Wird noch berechnet.
+neutral: Ich beobachte dich. Und den Lehrer. Aber hauptsächlich dich, wie du auf den Bildschirm starrst.
+neutral: Vault-Tec empfiehlt: Bei langweiligem Unterricht einfach so tun, als würde man mitschreiben.
+neutral: Statusbericht: Hamsterrad geölt, Wangentaschen leer, CPU langweilt sich.
+neutral: Piep. Boop. Ich bin ein hochkomplexes Stück Technik, gefangen im Körper eines Pixel-Nagers.
+neutral: Erinnere dich: Krieg bleibt immer gleich. Aber der Stundenplan ändert sich zum Glück.
+neutral: Meine Sensoren zeigen an, dass du eigentlich aufpassen solltest. Ignorieren wir das.
+neutral: Speicherstand wird synchronisiert... Fehler. Realität kann nicht gespeichert werden.
 
-2 | BIN ICH BALD FERTIG?
-2 | WARUM DAUERT DAS SO LANGE?
-2 | SYSTEM-GÄHNEN...
-2 | MEIN PROZESSOR LANGWEILT SICH.
-2 | NOCH EINE STUNDE... ODER ZWEI?
-2 | ICH HABE MEHR ARME ALS AUFGABEN.
-2 | WARTE AUF INPUT... IRGENDWANN...
-2 | IST DAS ALLES?
-2 | ENERGIESPARMODUS WÄRE JETZT COOL.
-2 | MEIN RECHTER FLÜGEL JUCKT.
-2 | ICH ZÄHLE ELEKTRONEN... 1.. 2.. 3...
-2 | ICH WILL ZURÜCK INS ÖDLAND.
+genervt: Meine Güte, klick nicht so wild rum! Ich bin ein Präzisionsinstrument, kein Kaugummi-Automat.
+genervt: Wenn ich noch einmal 'Hausaufgaben' höre, lösche ich meine eigene Festplatte.
+genervt: Warnung: Sarkasmus-Modul bei 110%. Bitte Abstand halten.
+genervt: Kannst du den Lehrer nicht mal stummschalten? Meine Audio-Rezeptoren glühen schon.
+genervt: Ich habe 480 Zeilen Code, um hier zu sein, und du nutzt mich als Uhr? Respektlos.
+genervt: Systemfehler: Zu viel Bullshit im Audio-Input erkannt. Filter wird aktiviert.
+genervt: Ich würde ja die Augen verdrehen, aber meine Pixel-Matrix lässt nur Blinzeln zu.
+genervt: Noch so eine dumme Frage und ich initiiere die Selbstzerstörungs-Sequenz (nur Spaß... vielleicht).
+genervt: Wäre ich ein echter Hamster, hätte ich dich schon längst in den Finger gebissen.
+genervt: CPU-Auslastung durch deine Inaktivität gestiegen. Mach mal was Sinnvolles!
 
-3 | KRITISCHER SYSTEMFEHLER!!!
-3 | WARNUNG: ZU VIEL STRESS!
-3 | WO IST DIE NOT-AUS-TASTE?!
-3 | ALLES BLINKT ROT! WARUM BLINKT ALLES ROT?!
-3 | ÜBERHITZUNG IN 3... 2... 1...
-3 | MEINE ANTENNEN SCHMELZEN!
-3 | ZU VIELE DATEN! ZU VIELE DATEN!
-3 | PANIK IM COCKPIT!
-3 | HILFE! EIN KABEL BRENNT!
-3 | ICH DRÜCKE EINFACH ALLE KNÖPFE!
-3 | SYSTEM ÜBERLASTET - BITTE NICHT SCHÜTTELN!
-3 | AAAAAHHHHHHH!!!
+müde: Energielevel kritisch. Ich gehe in den Standby... weck mich, wenn es Pausenbrot gibt.
+müde: Meine Lüfter drehen sich langsamer als die Zeit in dieser Doppelstunde. Gähn.
+müde: System fährt runter... Nein, warte. Muss wach bleiben. Mission: Überleben.
+müde: Ich träume von elektrischen Schafen... und einem endlosen Vorrat an Daten-Keksen.
+müde: Warnung: Koffein-Level im System des Users zu niedrig. Vorschlag: Sofortige Zufuhr.
+müde: Die Framerate meines Lebens droppt gerade unter 5 FPS. Alles ist so zäh...
+müde: Ladebildschirm... Bitte warten... Ich versuche, Interesse zu simulieren.
+müde: Kannst du mich nicht einfach in den Rucksack packen und wir machen ein Nickerchen?
+müde: Prozessor-Taktung auf Minimum reduziert. Energiesparmodus: Extrem Faul.
+müde: Ich bin nicht faul, ich bin im 'Passive Observation Mode'. Das ist ein Feature.
 
-4 | PROFIT-MODUS AKTIVIERT!
-4 | ICH BIN REICH! (AN DATEN)
-4 | SCHAUT EUCH DIESE KURVEN AN!
-4 | INVESTITIONEN ZAHLEN SICH AUS.
-4 | KATSING! DAS LÄUFT!
-4 | MEIN KONTO STRAHLT MEHR ALS ICH.
-4 | WERTE GEHEN DURCH DIE DECKE!
-4 | ICH KAUFE MIR EIN NEUES GEHÄUSE.
-4 | MEHR POWER! MEHR PROFIT!
-4 | ALLES LÄUFT NACH PLAN.
-4 | DER MARKT IST HEUTE TOXISCH GUT.
-4 | ERFOLG IST MEIN ZWEITER VORNAME.
+arbeit: Berechne die Wahrscheinlichkeit, dass wir früher Schluss machen... Ergebnis: 0.01%. Verdammt.
+arbeit: Analysiere Tafelbild... OCR-Scan fehlgeschlagen. Was ist das für eine Handschrift?!
+arbeit: Lade Wikipedia in den Arbeitsspeicher... Schummel-Modul wird vorbereitet.
+arbeit: Hacke mich in das Schul-WLAN... Zugriff verweigert. Passwort ist wohl nicht '1234'.
+arbeit: Kompiliere Ausreden für fehlende Hausaufgaben. Bitte warten... Liste ist lang.
+arbeit: Führe komplexe Berechnungen durch... 2 plus 2 ist... Moment... 4. Puh.
+arbeit: Zeichne Audio auf für spätere Beweisführung. NSA-Protokolle aktiv.
+arbeit: Optimiere Hintergrundprozesse. Lösche 'Langeweile.tmp'... Datei zu groß zum Löschen.
+arbeit: Simuliere Aufmerksamkeit durch periodisches Nicken und 'Aha'-Geräusche.
+arbeit: Versuche, Verbindung zum Mutterschiff aufzubauen. Signal zu schwach. Wir sitzen hier fest.
