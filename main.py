@@ -270,18 +270,27 @@ while True:
     # ----------------------------------------------------
     # SCHLAFMODUS
     # ----------------------------------------------------
+# ----------------------------------------------------
+    # SCHLAFMODUS (ABENDS & WOCHENENDE)
+    # ----------------------------------------------------
     now = datetime.now()
-    if now.hour >= 17 or now.hour < 7:
+    ist_wochenende = now.weekday() >= 5  # 5 = Samstag, 6 = Sonntag
+    ist_feierabend = now.hour >= 17 or now.hour < 7
+
+    if ist_wochenende or ist_feierabend:
         screen.fill(BLACK)
         zzz_x, zzz_y = random.randint(50, W-150), random.randint(50, H-50)
+        
+        status_grund = "WEEKEND" if ist_wochenende else "NIGHT"
         screen.blit(font_time.render("Zzzzz...", True, (0, 50, 0)), (zzz_x, zzz_y))
-        screen.blit(font_v_small.render(f"SLEEP MODE | {now.strftime('%H:%M')}", True, (0, 30, 0)), (20, H-30))
+        screen.blit(font_v_small.render(f"SLEEP MODE | {status_grund} | {now.strftime('%H:%M')}", True, (0, 30, 0)), (20, H-30))
+        
         pygame.display.flip()
         time.sleep(2) 
         for e in pygame.event.get():
             if e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_q): pygame.quit(); sys.exit()
-        continue 
-
+        continue
+        
     clock.tick(FPS)
     for e in pygame.event.get():
         if e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_q): pygame.quit(); sys.exit()
