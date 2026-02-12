@@ -30,6 +30,7 @@ ASSET_DIR = os.path.join(BASE_DIR, "assets")
 BG_PATH   = os.path.join(ASSET_DIR, "bg.png")
 FONT_PATH = os.path.join(ASSET_DIR, "Monofonto.ttf")
 TXT_PATH  = os.path.join(ASSET_DIR, "emotions.txt")
+ART_PATH  = os.path.join(ASSET_DIR, "art.txt") # Neuer Pfad für Smilies
 
 CRITL_PATHS = {
     1: os.path.join(ASSET_DIR, "1.png"), 
@@ -112,10 +113,24 @@ def load_quotes():
         except: pass
     return data
 
+def load_faces():
+    # Fallback, falls Datei fehlt
+    faces = ["(o_o)", "(>_<)", "(O_O)"]
+    if os.path.exists(ART_PATH):
+        try:
+            with open(ART_PATH, "r", encoding="utf-8") as f:
+                # Zeilen einlesen, Leerzeichen entfernen, leere Zeilen ignorieren
+                loaded = [line.strip() for line in f if line.strip()]
+            if loaded:
+                faces = loaded
+        except: pass
+    return faces
+
 # ============================================================
 # TEXTE & EVENTS CONFIG
 # ============================================================
 CRITL_QUOTES = load_quotes()
+CRITL_FACES = load_faces() # Hier laden wir jetzt die art.txt
 
 EVENTS = [
     # Die großen Events (seltener)
@@ -130,7 +145,7 @@ EVENTS = [
     # Die neuen Mini-Events (häufiger in der Rotation)
     {"type":"glitch_blue", "min":3, "max":5},
     {"type":"glitch_green","min":3, "max":5},
-    {"type":"glitch_blue", "min":3, "max":5}, # Doppelt für höhere Wahrscheinlichkeit
+    {"type":"glitch_blue", "min":3, "max":5}, 
     {"type":"glitch_green","min":3, "max":5}
 ]
 
@@ -146,7 +161,15 @@ def load_font(size):
     try: return pygame.font.Font(FONT_PATH,size)
     except: return pygame.font.SysFont("monospace",size)
 
+# Haupt-Fonts (Monofonto)
 font_time, font_body, font_small, font_v_small = load_font(75), load_font(32), load_font(24), load_font(18)
+
+# EXTRA FONT FÜR SMILIES (System-Font, damit Unicode geht)
+try:
+    font_smilie = pygame.font.SysFont("arial", 35, bold=True)
+except:
+    font_smilie = pygame.font.SysFont(None, 35, bold=True)
+
 
 try: bg = pygame.transform.scale(pygame.image.load(BG_PATH),(W,H))
 except: bg = pygame.Surface((W,H)); bg.fill(BLACK)
@@ -224,7 +247,7 @@ def draw_status_icons(t):
 # MAIN LOOP
 # ============================================================
 active_event, ev_start, ev_dur = None, 0, 0
-next_event = time.time() + 120 # Startet etwas früher mit Events
+next_event = time.time() + 120 
 
 active_quote, q_until, next_quote = "", 0, time.time()+20
 active_face, last_face_change = "(o_o)", 0
@@ -271,14 +294,12 @@ while True:
 
         # --- MINI EVENTS ---
         if et == "glitch_blue":
-            # Blauer Tint + Scanline von oben nach unten
             tint((0, 50, 100), 40)
             sy = int(p_ev * H)
             pygame.draw.line(screen, (100, 200, 255), (0, sy), (W, sy), 3)
             pygame.draw.line(screen, (100, 200, 255), (0, sy-2), (W, sy-2), 1)
         
         elif et == "glitch_green":
-            # Kriseln (Grüne Pixel überall)
             for _ in range(600):
                 screen.set_at((random.randrange(W), random.randrange(H)), (100, 255, 100))
 
@@ -432,16 +453,19 @@ while True:
         wd = {"Monday":"MONTAG","Tuesday":"DIENSTAG","Wednesday":"MITTWOCH","Thursday":"DONNERSTAG","Friday":"FREITAG","Saturday":"SAMSTAG","Sunday":"SONNTAG"}
         screen.blit(font_body.render(f"{wd.get(now.strftime('%A'),'TAG')}, {now.strftime('%d.%m.')}", True, GREEN_SOFT), (35, 120))
         
+        # SMILIE MIT NEUEM SYSTEM-FONT
         if t_now - last_face_change > 5:
-            all_faces = ["(o_o)", "[O.O]", "( -_-)", "<o_o>", "(u_u)", "(^.^)", "(⌐■_■)", "(◕‿◕)"]
-            active_face = random.choice(all_faces); last_face_change = t_now
-        screen.blit(font_body.render(active_face, True, (20, 100, 20)), (37, 182))
-        screen.blit(font_body.render(active_face, True, GREEN), (35, 180))
+            # Jetzt aus der CRITL_FACES Liste (geladen aus art.txt)
+            active_face = random.choice(CRITL_FACES); last_face_change = t_now
+        
+        screen.blit(font_smilie.render(active_face, True, (20, 100, 20)), (37, 182))
+        screen.blit(font_smilie.render(active_face, True, GREEN), (35, 180))
         
         draw_bar(20, H-80, 600, 45, prog, is_p, remain, label, t_s, t_e)
         
         if not active_quote and t_now > next_quote:
             active_quote, q_until, next_quote = random.choice(CRITL_QUOTES[mood]), t_now+6, t_now+random.randint(30,60)
+        # TEXT STARTET HÖHER FÜR MEHR ZEILEN
         if active_quote: draw_text_wrapped("CRITL: "+active_quote, 35, H-175, font_small, GREEN_SOFT)
 
     draw_edge_scan(t_now)
@@ -451,6 +475,5 @@ while True:
     if not active_event and t_now > next_event:
         active_event = random.choice(EVENTS)
         ev_start, ev_dur = t_now, random.randint(active_event["min"], active_event["max"])
-        # Timer etwas verkürzt, damit die Mini-Events öfter vorkommen
         next_event = t_now + random.randint(120, 300) 
     pygame.display.flip()
