@@ -442,7 +442,7 @@ while True:
         
         if not active_quote and t_now > next_quote:
             active_quote, q_until, next_quote = random.choice(CRITL_QUOTES[mood]), t_now+6, t_now+random.randint(30,60)
-        if active_quote: draw_text_wrapped("CRITL: "+active_quote, 35, H-130, font_small, GREEN_SOFT)
+        if active_quote: draw_text_wrapped("CRITL: "+active_quote, 35, H-160, font_small, GREEN_SOFT)
 
     draw_edge_scan(t_now)
     sl = pygame.Surface((W, H), pygame.SRCALPHA)
