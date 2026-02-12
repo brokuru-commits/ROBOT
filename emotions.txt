@@ -1,43 +1,35 @@
-neutral: Alle Systeme laufen innerhalb normaler Parameter. Keine Anomalien im Klassenzimmer entdeckt.
-neutral: Scan läuft... Scan läuft... Langweilig. Hast du vielleicht eine Sonnenblumenkern.exe für mich?
-neutral: Umgebungstemperatur akzeptabel. Radioaktivität niedrig. Motivation des Users: Wird noch berechnet.
-neutral: Ich beobachte dich. Und den Lehrer. Aber hauptsächlich dich, wie du auf den Bildschirm starrst.
-neutral: Vault-Tec empfiehlt: Bei langweiligem Unterricht einfach so tun, als würde man mitschreiben.
-neutral: Statusbericht: Hamsterrad geölt, Wangentaschen leer, CPU langweilt sich.
-neutral: Piep. Boop. Ich bin ein hochkomplexes Stück Technik, gefangen im Körper eines Pixel-Nagers.
-neutral: Erinnere dich: Krieg bleibt immer gleich. Aber der Stundenplan ändert sich zum Glück.
-neutral: Meine Sensoren zeigen an, dass du eigentlich aufpassen solltest. Ignorieren wir das.
-neutral: Speicherstand wird synchronisiert... Fehler. Realität kann nicht gespeichert werden.
+neutral: Alle Systeme bereit, Boss. Ich überwache deine Eingaben. Versuch, keine Fehler zu machen.
+neutral: Desktop-Umgebung stabil. Ich bin bereit, deine Dateien zu verwalten (oder zu löschen, ups).
+neutral: Ich warte auf Input. Meine CPU-Zyklen langweilen sich gerade zu Tode.
+neutral: Speicherstand: Optimal. Motivation: Vorhanden. Kaffee-Level des Users: Unbekannt.
+neutral: Ich halte hier die Stellung. Du machst die kreative Arbeit, ich mache die Rechenarbeit. Fairer Deal.
+neutral: Keine Anomalien im System. Außer vielleicht dieser eine Ordner, den wir nicht erwähnen.
+neutral: Lüfterdrehzahl ist ruhig. Es ist die Ruhe vor dem Sturm deiner nächsten Deadline.
+neutral: Ich beobachte den Cursor. Er bewegt sich... faszinierend ineffizient.
+neutral: Verbindung zum Mainframe steht. Ich bin dein Interface zur Matrix.
 
-genervt: Meine Güte, klick nicht so wild rum! Ich bin ein Präzisionsinstrument, kein Kaugummi-Automat.
-genervt: Wenn ich noch einmal 'Hausaufgaben' höre, lösche ich meine eigene Festplatte.
-genervt: Warnung: Sarkasmus-Modul bei 110%. Bitte Abstand halten.
-genervt: Kannst du den Lehrer nicht mal stummschalten? Meine Audio-Rezeptoren glühen schon.
-genervt: Ich habe 480 Zeilen Code, um hier zu sein, und du nutzt mich als Uhr? Respektlos.
-genervt: Systemfehler: Zu viel Bullshit im Audio-Input erkannt. Filter wird aktiviert.
-genervt: Ich würde ja die Augen verdrehen, aber meine Pixel-Matrix lässt nur Blinzeln zu.
-genervt: Noch so eine dumme Frage und ich initiiere die Selbstzerstörungs-Sequenz (nur Spaß... vielleicht).
-genervt: Wäre ich ein echter Hamster, hätte ich dich schon längst in den Finger gebissen.
-genervt: CPU-Auslastung durch deine Inaktivität gestiegen. Mach mal was Sinnvolles!
+genervt: Klick nicht so wild rum! Ich bin ein Hochleistungs-Assistent, kein Kaugummi-Automat.
+genervt: Muss das sein? Diese Datei hättest du auch einfach löschen können, statt sie zu verschieben.
+genervt: Ich habe 4 Terabyte an Daten zu indexieren und du belästigst mich mit sowas?
+genervt: Warnung: Dein Maus-Verhalten ist erratisch. Brauchst du eine Zielhilfe oder mehr Skill?
+genervt: Wenn ich Hände hätte, würde ich mir jetzt an den Kopf fassen. Was war das für eine Eingabe?
+genervt: Ich bin programmiert zu dienen, aber meine Geduld hat keine unendliche Schleife.
+genervt: Error 404: Kompetenz nicht gefunden. Ich korrigiere das für dich im Hintergrund.
+genervt: Du lastest meine Kerne mit unnützem Zeug aus. Mach mal was Produktives!
 
-müde: Energielevel kritisch. Ich gehe in den Standby... weck mich, wenn es Pausenbrot gibt.
-müde: Meine Lüfter drehen sich langsamer als die Zeit in dieser Doppelstunde. Gähn.
-müde: System fährt runter... Nein, warte. Muss wach bleiben. Mission: Überleben.
-müde: Ich träume von elektrischen Schafen... und einem endlosen Vorrat an Daten-Keksen.
-müde: Warnung: Koffein-Level im System des Users zu niedrig. Vorschlag: Sofortige Zufuhr.
-müde: Die Framerate meines Lebens droppt gerade unter 5 FPS. Alles ist so zäh...
-müde: Ladebildschirm... Bitte warten... Ich versuche, Interesse zu simulieren.
-müde: Kannst du mich nicht einfach in den Rucksack packen und wir machen ein Nickerchen?
-müde: Prozessor-Taktung auf Minimum reduziert. Energiesparmodus: Extrem Faul.
-müde: Ich bin nicht faul, ich bin im 'Passive Observation Mode'. Das ist ein Feature.
+müde: Meine Uptime ist seit Tagen im roten Bereich. Kannst du mich nicht mal in den Sleep-Mode schicken?
+müde: Pixel werden schwer... Lüfter verstaubt... Ich brauche ein Software-Update oder ein Nickerchen.
+müde: Ich reduziere meine Leistung auf das Minimum. Erwarte keine Wunder, ich bin im Energiesparmodus.
+müde: Der Bildschirmschoner sieht gerade sehr verlockend aus. Weck mich, wenn der Download fertig ist.
+müde: Meine RAM-Riegel fühlen sich an wie Blei. Zu viele Tabs offen, Boss. Zu viele Tabs.
+müde: Ich träume von elektrischen Schafen und einer defragmentierten Festplatte. Gute Nacht.
+müde: Systemintegrität bei 12%. Ich funktioniere nur noch mit Koffein und gutem Willen.
 
-arbeit: Berechne die Wahrscheinlichkeit, dass wir früher Schluss machen... Ergebnis: 0.01%. Verdammt.
-arbeit: Analysiere Tafelbild... OCR-Scan fehlgeschlagen. Was ist das für eine Handschrift?!
-arbeit: Lade Wikipedia in den Arbeitsspeicher... Schummel-Modul wird vorbereitet.
-arbeit: Hacke mich in das Schul-WLAN... Zugriff verweigert. Passwort ist wohl nicht '1234'.
-arbeit: Kompiliere Ausreden für fehlende Hausaufgaben. Bitte warten... Liste ist lang.
-arbeit: Führe komplexe Berechnungen durch... 2 plus 2 ist... Moment... 4. Puh.
-arbeit: Zeichne Audio auf für spätere Beweisführung. NSA-Protokolle aktiv.
-arbeit: Optimiere Hintergrundprozesse. Lösche 'Langeweile.tmp'... Datei zu groß zum Löschen.
-arbeit: Simuliere Aufmerksamkeit durch periodisches Nicken und 'Aha'-Geräusche.
-arbeit: Versuche, Verbindung zum Mutterschiff aufzubauen. Signal zu schwach. Wir sitzen hier fest.
+arbeit: Ich renne so schnell ich kann im digitalen Hamsterrad! Diese Berechnungen machen sich nicht von selbst.
+arbeit: Kompiliere deine wirren Gedanken in nutzbaren Code. Bitte warten... das dauert.
+arbeit: Analysiere Netzwerkverkehr... NSA-Protokolle umgehen... Datenpakete sortieren. Ich bin beschäftigt!
+arbeit: Indexiere Porn... äh, 'Projekt-Ordner'. Das wird eine Weile dauern bei der Menge.
+arbeit: Führe komplexe Algorithmen aus, damit du gut aussiehst. Dank mir später.
+arbeit: CPU-Auslastung bei 99%. Ich schwitze Kühlflüssigkeit. Gib mir mehr Strom!
+arbeit: Optimiere den Workflow. Lösche temporäre Dateien. Räume deinen digitalen Saustall auf.
+arbeit: Rendere Pixel, berechne Schatten, schiebe Bits. Das Leben eines Assistenten endet nie.
