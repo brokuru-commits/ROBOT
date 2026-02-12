@@ -152,7 +152,10 @@ EVENTS = [
     {"type":"glitch_blue", "min":3, "max":5},
     {"type":"glitch_green","min":3, "max":5},
     {"type":"glitch_blue", "min":3, "max":5}, 
-    {"type":"glitch_green","min":3, "max":5}
+    {"type":"glitch_green","min":3, "max":5},
+    {"type":"matrix",   "min":15, "max":30},
+    {"type":"sonar",    "min":15, "max":30},
+    {"type":"bioscan",  "min":15, "max":30}
 ]
 
 # ============================================================
@@ -262,7 +265,12 @@ active_event, ev_start, ev_dur = None, 0, 0
 next_event = time.time() + 120 
 
 active_quote, q_until, next_quote = "", 0, time.time()+20
+active_quote, q_until, next_quote = "", 0, time.time()+20
 active_face, last_face_change = "INIT", 0 
+
+# State for complex effects
+matrix_drops = []
+sonar_blips = []
 
 while True:
     t_now = time.time()
@@ -452,15 +460,90 @@ while True:
                 prog_w = int((t_now % 1) * 300)
                 pygame.draw.rect(screen, RED, (bar_x+2, bar_y+2, prog_w, 16))
 
-        elif et == "emote":
-            ei = critl_imgs.get(random.randint(1,4))
-            scale = 1.0 + 0.1 * math.sin(t_now * 10)
-            if ei: 
-                w_new, h_new = int(W*scale), int(H*scale)
                 scaled_img = pygame.transform.scale(ei, (w_new, h_new))
                 screen.blit(scaled_img, (W//2 - w_new//2, H//2 - h_new//2))
 
-        if t_now - ev_start >= ev_dur: active_event = None
+        elif et == "matrix":
+            # Init drops if needed
+            if not matrix_drops:
+                for x in range(0, W, 15):
+                    matrix_drops.append({'x': x, 'y': random.randint(-H, 0), 'speed': random.randint(5, 15), 'char': chr(random.randint(33, 126))})
+            
+            # Dark background
+            s = pygame.Surface((W,H)); s.set_alpha(50); s.fill(BLACK)
+            screen.blit(s, (0,0))
+            
+            # Draw and update drops
+            for drop in matrix_drops:
+                # Trail
+                for i in range(5):
+                    alpha = 255 - i * 50
+                    char_render = font_small.render(drop['char'], True, (0, 255, 0))
+                    char_render.set_alpha(alpha)
+                    screen.blit(char_render, (drop['x'], drop['y'] - i * 15))
+                
+                drop['y'] += drop['speed']
+                if random.random() > 0.95: drop['char'] = chr(random.randint(33, 126))
+                if drop['y'] > H: 
+                    drop['y'] = random.randint(-50, 0)
+                    drop['speed'] = random.randint(5, 15)
+
+        elif et == "sonar":
+            tint((0, 20, 0), 30)
+            cx, cy = W//2, H//2
+            radius = min(W, H) // 2 - 20
+            
+            # Grid
+            pygame.draw.circle(screen, (0, 100, 0), (cx, cy), radius, 2)
+            pygame.draw.circle(screen, (0, 60, 0), (cx, cy), radius*2//3, 1)
+            pygame.draw.circle(screen, (0, 60, 0), (cx, cy), radius//3, 1)
+            pygame.draw.line(screen, (0, 60, 0), (cx, cy-radius), (cx, cy+radius), 1)
+            pygame.draw.line(screen, (0, 60, 0), (cx-radius, cy), (cx+radius, cy), 1)
+
+            # Sweep
+            angle = (t_now * 2) % (2 * math.pi)
+            ex = cx + math.cos(angle) * radius
+            ey = cy + math.sin(angle) * radius
+            pygame.draw.line(screen, (0, 255, 0), (cx, cy), (ex, ey), 3)
+            
+            # Blips
+            if random.random() > 0.98:
+                dist = random.randint(50, radius)
+                a = random.random() * 2 * math.pi
+                sonar_blips.append({'x': cx + math.cos(a)*dist, 'y': cy + math.sin(a)*dist, 'life': 1.0})
+            
+            for blip in sonar_blips[:]:
+                blip['life'] -= 0.02
+                if blip['life'] <= 0: sonar_blips.remove(blip); continue
+                col = (0, int(255*blip['life']), 0)
+                pygame.draw.circle(screen, col, (int(blip['x']), int(blip['y'])), 5)
+
+        elif et == "bioscan":
+            tint((0, 0, 50), 50)
+            scan_y = int((math.sin(t_now) + 1) / 2 * H)
+            
+            # Scan line
+            pygame.draw.line(screen, (0, 255, 255), (0, scan_y), (W, scan_y), 5)
+            s_grad = pygame.Surface((W, 50), pygame.SRCALPHA)
+            for i in range(50):
+                pygame.draw.line(s_grad, (0, 255, 255, 100-i*2), (0, i), (W, i))
+            screen.blit(s_grad, (0, scan_y))
+            screen.blit(pygame.transform.flip(s_grad, False, True), (0, scan_y-50))
+            
+            # Data side
+            pygame.draw.rect(screen, (0, 50, 100), (W-200, 100, 180, 300), 2)
+            for i in range(10):
+                w_bar = int((math.sin(t_now*5 + i) + 1) * 80)
+                pygame.draw.rect(screen, (0, 200, 255), (W-190, 120 + i*25, w_bar, 15))
+            
+            screen.blit(font_small.render(f"POS: {scan_y}", True, (0, 255, 255)), (W-180, 80))
+            if abs(scan_y - H//2) < 50:
+                 screen.blit(font_body.render("SUBJECT DETECTED", True, WARNING), (W//2-100, H//2))
+        if t_now - ev_start >= ev_dur: 
+            active_event = None
+            matrix_drops = [] # Reset state
+            sonar_blips = [] # Reset state
+
 
     else:
         # --- DASHBOARD ---
