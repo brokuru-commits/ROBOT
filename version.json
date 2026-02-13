@@ -1,0 +1,7 @@
+{
+  "version": "2.1.0",
+  "build": "20260213",
+  "update_url": "https://api.github.com/repos/brokuru/HEUM-tec/releases/latest",
+  "check_interval": 3600,
+  "last_check": 1770968491.80896
+}

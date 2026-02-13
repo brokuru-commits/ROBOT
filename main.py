@@ -4,6 +4,11 @@
 import os, sys, time, math, random
 from datetime import datetime
 import pygame
+from hacking_game import HackingGame
+from critl_personality import CRITLPersonality
+from boot_screen import BootScreen
+from update_screen import UpdateScreen
+from update_system import UpdateSystem
 
 # ============================================================
 # FIXED SPECS (640x480 GOLD-STANDARD)
@@ -12,13 +17,14 @@ W, H = 640, 480
 FPS = 25
 
 # FARBEN
-GREEN      = (80, 255, 80)
-GREEN_SOFT = (120, 255, 120)
-DIM_GREEN  = (18, 55, 18)
+GREEN      = (55, 200, 55)
+GREEN_SOFT = (100, 230, 100)
+DIM_GREEN  = (10, 40, 10)
 BLUE       = (0, 190, 255)
 DIM_BLUE   = (0, 50, 100)
 RED        = (255, 50, 50)
 WARN       = (255, 180, 60)
+WARNING    = WARN # Alias for backward compatibility and lint fix
 ORANGE     = (255, 150, 50)
 BLACK      = (0, 0, 0)
 WHITE      = (255, 255, 255)
@@ -40,7 +46,11 @@ CRITL_PATHS = {
     1: os.path.join(ASSET_DIR, "1.png"), 
     2: os.path.join(ASSET_DIR, "2.png"),
     3: os.path.join(ASSET_DIR, "3.png"), 
-    4: os.path.join(ASSET_DIR, "4.png")
+    4: os.path.join(ASSET_DIR, "4.png"),
+    5: os.path.join(ASSET_DIR, "3.png"), # Fallback: Angry -> Grumpy
+    6: os.path.join(ASSET_DIR, "4.png"), # Fallback: Snacking -> Happy
+    7: os.path.join(ASSET_DIR, "3.png"), # Fallback: Panic -> Grumpy
+    8: os.path.join(ASSET_DIR, "4.png")  # Fallback: Elite -> Happy
 }
 
 # ============================================================
@@ -155,22 +165,23 @@ EVENTS = [
     {"type":"glitch_green","min":3, "max":5},
     {"type":"matrix",   "min":15, "max":30},
     {"type":"sonar",    "min":15, "max":30},
-    {"type":"bioscan",  "min":15, "max":30}
+    {"type":"bioscan",  "min":15, "max":30},
+    {"type":"hacking",  "min":999, "max":999}
 ]
 
 # ============================================================
 # INIT
 # ============================================================
 pygame.init()
-screen = pygame.display.set_mode((W,H), pygame.FULLSCREEN | pygame.NOFRAME)
-pygame.mouse.set_visible(False)
+screen = pygame.display.set_mode((W,H))
+pygame.mouse.set_visible(True)
 clock = pygame.time.Clock()
 
 def load_font(size):
     try: return pygame.font.Font(FONT_PATH,size)
     except: return pygame.font.SysFont("monospace",size)
 
-font_time, font_body, font_small, font_v_small = load_font(75), load_font(32), load_font(24), load_font(18)
+font_time, font_large, font_body, font_small, font_v_small = load_font(75), load_font(48), load_font(32), load_font(24), load_font(18)
 
 # ROBUSTER FONT LOADER
 font_smilie = None
@@ -187,12 +198,58 @@ if not font_smilie:
     font_smilie = pygame.font.SysFont(None, 35, bold=True)
 
 try: bg = pygame.transform.scale(pygame.image.load(BG_PATH),(W,H))
-except: bg = pygame.Surface((W,H)); bg.fill(BLACK)
+except: 
+    # Procedural Pip-Boy Background Fallback
+    bg = pygame.Surface((W,H))
+    bg.fill((5, 15, 5)) # Very dark green
+    # Subtle Scanlines
+    for y in range(0, H, 2):
+        pygame.draw.line(bg, (0, 10, 0), (0, y), (W, y))
+    # Glowing Corner Accents
+    pygame.draw.rect(bg, (20, 60, 20), (0,0,W,H), 8) # Outer border
+    pygame.draw.line(bg, GREEN, (20, 20), (100, 20), 2) # Top Left
+    pygame.draw.line(bg, GREEN, (20, 20), (20, 100), 2)
+    pygame.draw.line(bg, GREEN, (W-100, 20), (W-20, 20), 2) # Top Right
+    pygame.draw.line(bg, GREEN, (W-20, 20), (W-20, 100), 2)
 
 critl_imgs={}
 for k,p in CRITL_PATHS.items():
     try: critl_imgs[k]=pygame.transform.smoothscale(pygame.image.load(p).convert_alpha(),(350,350))
     except: critl_imgs[k]=None
+
+STORY_ASSETS = {}
+def get_story_asset(asset_name):
+    if not asset_name: return None
+    if asset_name in STORY_ASSETS: return STORY_ASSETS[asset_name]
+    
+    # Try multiple paths
+    paths = [
+        os.path.join("assets", "stories", f"{asset_name}.png"),
+        os.path.join("assets", "stories", asset_name),
+        os.path.join("assets", f"{asset_name}.png")
+    ]
+    
+    for p in paths:
+        if os.path.exists(p):
+            try:
+                img = pygame.image.load(p).convert_alpha()
+                # Determine scale: Story images are often larger/backgrounds
+                # But for now we stick to a consistent size for character overrides
+                # or scale to fill a significant area
+                scaled = pygame.transform.smoothscale(img, (350, 350))
+                STORY_ASSETS[asset_name] = scaled
+                return scaled
+            except: continue
+    return None
+
+# INIT HACKING GAME
+hacking_game = HackingGame(screen, font_body, font_small)
+critl = CRITLPersonality()
+
+# INIT UPDATE SYSTEM
+updater = UpdateSystem()
+boot_screen = BootScreen(screen, W, H)
+update_screen = UpdateScreen(screen, W, H)
 
 # ============================================================
 # ZEICHEN-HELFER
@@ -224,18 +281,125 @@ def draw_bar(x, y, w, h, prog, is_pause, remain, label, t_start, t_end):
     screen.blit(s_light, (tx, ty))
     screen.set_clip(None)
 
+def draw_speech_bubble(text, source_pos):
+    if not text: return
+    # Max widths and padding
+    max_w = 200
+    pad = 10
+    # Wrap text
+    words = text.split(' ')
+    lines = []
+    current_line = ""
+    for w in words:
+        test_line = current_line + w + " "
+        if font_v_small.size(test_line)[0] < max_w:
+            current_line = test_line
+        else:
+            lines.append(current_line)
+            current_line = w + " "
+    lines.append(current_line)
+    
+    # Calculate bubble size
+    tw = max(font_v_small.size(l)[0] for l in lines)
+    th = len(lines) * (font_v_small.get_height() + 2)
+    bw, bh = tw + pad*2, th + pad*2
+    
+    # Position: Default (above CRITL) or Event (Bottom Right)
+    style = getattr(critl, 'speech_style', 'default')
+    if style == "event":
+        bx = W - bw - 20
+        by = H - bh - 120 # Above needs footer
+    else:
+        bx = source_pos[0] - bw - 10
+        by = source_pos[1] - bh // 2
+    
+    # Draw bubble box
+    pygame.draw.rect(screen, BLACK, (bx, by, bw, bh))
+    pygame.draw.rect(screen, GREEN, (bx, by, bw, bh), 2)
+    
+    # Draw text
+    for i, line in enumerate(lines):
+        txt_surf = font_v_small.render(line.strip(), True, GREEN)
+        screen.blit(txt_surf, (bx + pad, by + pad + i * (font_v_small.get_height() + 2)))
+    
+    # Draw "tail"
+    if style == "default":
+        pygame.draw.polygon(screen, GREEN, [(bx+bw, by+bh//2-5), (bx+bw+10, by+bh//2), (bx+bw, by+bh//2+5)])
+    else:
+        # Tail pointing towards the screen center or bottom
+        pygame.draw.polygon(screen, GREEN, [(bx+bw//2-5, by+bh), (bx+bw//2, by+bh+10), (bx+bw//2+5, by+bh)])
+
 def draw_edge_scan(t):
     lw, lx = 60, int((t * 100) % W)
     cv = int(math.sin(t * 2) * 127 + 128); col = (0, 255, cv)
+    y_pos = H - 5 # Moved further down
     if lx + lw > W:
-        pygame.draw.line(screen, col, (lx, H-12), (W, H-12), 3)
-        pygame.draw.line(screen, col, (0, H-12), (lw - (W - lx), H-12), 3)
-    else: pygame.draw.line(screen, col, (lx, H-12), (lx + lw, H-12), 3)
+        pygame.draw.line(screen, col, (lx, y_pos), (W, y_pos), 1)
+        pygame.draw.line(screen, col, (0, y_pos), (lw - (W - lx), y_pos), 1)
+    else: pygame.draw.line(screen, col, (lx, y_pos), (lx + lw, y_pos), 1)
 
 def tint(color, alpha):
     s = pygame.Surface((W, H), pygame.SRCALPHA)
     s.fill((color[0], color[1], color[2], alpha))
     screen.blit(s, (0, 0))
+
+def draw_needs_footer():
+    # Full width at THE VERY BOTTOM
+    bar_y = H - 45
+    bar_h = 35
+    # 4 items spanning W
+    total_w = W - 40
+    step_w = total_w // 4
+    
+    rects = []
+    labels = [("snacks", "feed"), ("maintenance", "clean"), ("affection", "pet"), ("charge", "boost")]
+    
+    for i, (key, action) in enumerate(labels):
+        val = critl.needs.get(key, 0)
+        bx = 20 + i * step_w
+        
+        # --- DRAW THE BOX ---
+        rect = pygame.Rect(bx, bar_y, step_w - 10, bar_h)
+        mx, my = pygame.mouse.get_pos()
+        hover = rect.collidepoint(mx, my)
+        
+        # Flash check
+        is_flashing = time.time() < need_flashes.get(action, 0)
+        
+        rects.append((rect, action))
+        
+        # Draw bounding box
+        bg_col = (100, 50, 0) if is_flashing else DIM_GREEN
+        pygame.draw.rect(screen, bg_col, rect)
+        
+        border_col = ORANGE if is_flashing else (GREEN_SOFT if hover else GREEN)
+        pygame.draw.rect(screen, border_col, rect, 1)
+        
+        # --- ICON POSITION (Inside Box) ---
+        icon_x, icon_y = bx + 10, bar_y + (bar_h - 18)//2
+        icon_col = border_col
+
+        if key == "snacks": # PEANUT FLIP (Hexagon)
+             pts = [(icon_x, icon_y+5), (icon_x+8, icon_y), (icon_x+16, icon_y+ 5), (icon_x+16, icon_y+13), (icon_x+8, icon_y+18), (icon_x, icon_y+13)]
+             pygame.draw.polygon(screen, icon_col, pts, 1 if not hover else 0)
+        elif key == "maintenance": # WRENCH
+             pygame.draw.rect(screen, icon_col, (icon_x+4, icon_y+8, 8, 10)) # handle
+             pygame.draw.arc(screen, icon_col, (icon_x, icon_y, 16, 12), 0, math.pi, 2) # head
+        elif key == "affection": # HEART
+             pygame.draw.circle(screen, icon_col, (icon_x+4, icon_y+4), 4)
+             pygame.draw.circle(screen, icon_col, (icon_x+12, icon_y+4), 4)
+             pygame.draw.polygon(screen, icon_col, [(icon_x, icon_y+6), (icon_x+16, icon_y+6), (icon_x+8, icon_y+16)])
+        elif key == "charge": # BOLT
+             pts = [(icon_x+10, icon_y), (icon_x+2, icon_y+10), (icon_x+8, icon_y+10), (icon_x+4, icon_y+20), (icon_x+14, icon_y+8), (icon_x+8, icon_y+8)]
+             pygame.draw.lines(screen, icon_col, False, pts, 2)
+
+        # --- PERCENTAGE VALUE ---
+        val_text = f"{int(val)}%"
+        col = GREEN if val > 50 else (ORANGE if val > 20 else RED)
+        txt = font_v_small.render(val_text, True, col if not hover else GREEN_SOFT)
+        screen.blit(txt, (bx + 35, rect.centery - txt.get_height()//2))
+            
+    return rects
 
 def draw_status_icons(t):
     start_x, y, r, g, b = W - 110, 20, 80, 255, 80
@@ -257,334 +421,689 @@ def draw_status_icons(t):
     pts = [(17, 4), (24, 16), (17, 16), (20, 30), (10, 16), (17, 16)]
     pygame.draw.polygon(s_b, bc, pts)
     screen.blit(s_b, (start_x + 70, y))
+    
+    # SYSTEM ICON (Touchable Gear)
+    rect = pygame.Rect(start_x + 70, y, 34, 34)
+    mx, my = pygame.mouse.get_pos()
+    hover = rect.collidepoint(mx, my)
+    
+    s_sys = pygame.Surface((34,34), pygame.SRCALPHA)
+    pygame.draw.circle(s_sys, GREEN if not hover else GREEN_SOFT, (17, 17), 10, 2)
+    for i in range(8):
+        ang = i * (math.pi/4) + (t % 10) * 0.2
+        px = 17 + 13 * math.cos(ang)
+        py = 17 + 13 * math.sin(ang)
+        pygame.draw.circle(s_sys, GREEN if not hover else GREEN_SOFT, (int(px), int(py)), 3)
+    screen.blit(s_sys, (start_x + 70, y + 40))
+    return pygame.Rect(start_x + 70, y + 40, 34, 34)
+
+def draw_icon(icon_type, x, y):
+    s = pygame.Surface((30, 30), pygame.SRCALPHA)
+    if icon_type == "hacking":
+        # Terminal prompt >_
+        pygame.draw.line(s, GREEN, (5, 5), (15, 15), 3)
+        pygame.draw.line(s, GREEN, (5, 25), (15, 15), 3)
+        if (time.time() * 2) % 2 > 1: # Blinking cursor
+            pygame.draw.line(s, GREEN, (18, 25), (28, 25), 3)
+    elif icon_type == "lore":
+        # Document/Book icon
+        pygame.draw.rect(s, GREEN, (5, 5, 20, 24), 2)
+        pygame.draw.line(s, GREEN, (9, 10), (21, 10), 1)
+        pygame.draw.line(s, GREEN, (9, 15), (21, 15), 1)
+        pygame.draw.line(s, GREEN, (9, 20), (17, 20), 1)
+    elif icon_type == "bonding":
+        # Linked circles/Heart vibe
+        pygame.draw.circle(s, GREEN, (10, 15), 8, 2)
+        pygame.draw.circle(s, GREEN, (20, 15), 8, 2)
+    elif icon_type == "inventory":
+        # Floppy disk icon
+        pygame.draw.rect(s, GREEN, (4, 4, 22, 22), 2)
+        pygame.draw.rect(s, GREEN, (8, 4, 14, 8), 1) # Label
+        pygame.draw.rect(s, GREEN, (10, 18, 10, 8), 1) # Shutter
+    screen.blit(s, (x, y))
+
+def draw_rpg_overlay():
+    # Show main background but dimmed for readability
+    screen.blit(bg, (0, 0))
+    tint((0, 20, 0), 180) # Darken the BG for the overlay
+    
+    pygame.draw.rect(screen, GREEN, (50, 50, W-100, H-100), 1)
+    
+    title = font_body.render("CRITL SYSTEMSTATUS", True, GREEN)
+    screen.blit(title, (W//2 - title.get_width()//2, 70))
+    
+    # SKILLS (Moved up)
+    sy = 110
+    header = font_small.render("KERN-ARCHITEKTUR SKILLS:", True, GREEN)
+    screen.blit(header, (100, sy))
+    
+    # Skill Mapping for German Display
+    skill_map = {"hacking": "HACKEN", "lore": "WISSEN", "bonding": "VERBINDUNG"}
+    
+    for i, (name, val) in enumerate(critl.skills.items()):
+        disp_name = skill_map.get(name, name.upper())
+        draw_icon(name, 60, sy + 33 + i * 40)
+        txt = font_v_small.render(f"{disp_name}:", True, GREEN_SOFT)
+        screen.blit(txt, (100, sy + 35 + i * 40))
+        # Reuse draw_bar for skill values
+        draw_bar(220, sy + 33 + i * 40, 300, 18, min(val/100.0, 1.0), False, 0, f"LVL {int(val)}", "", "")
+        
+    # INVENTORY (Moved up)
+    iy = 260
+    draw_icon("inventory", 60, iy - 5)
+    header = font_small.render("NEURALER CACHE (INVENTAR):", True, GREEN)
+    screen.blit(header, (100, iy))
+    if not critl.inventory:
+        screen.blit(font_v_small.render("[KEINE ASSETS GEFUNDEN]", True, GREEN_SOFT), (120, iy + 35))
+    else:
+        for i, item in enumerate(critl.inventory[:3]): # Cap to 3 for space
+            screen.blit(font_v_small.render(f">> {item}", True, GREEN_SOFT), (120, iy + 35 + i * 25))
+
+    footer = font_v_small.render("SCHLIE\u00dfEN", True, GREEN)
+    screen.blit(footer, (W//2 - footer.get_width()//2, H - 90))
+    
+    close_rect = pygame.Rect(W//2 - 80, H - 105, 160, 45)
+    pygame.draw.rect(screen, GREEN, close_rect, 1)
+    return close_rect
+
+def draw_choice_ui():
+    if not critl.convo_options: critl.active_convo = ""
+    if not critl.active_convo or not critl.convo_options: return []
+    
+    rects = []
+    # Position options on left side where it's clear
+    start_y = H - 240
+    for i, opt in enumerate(critl.convo_options):
+        rect = pygame.Rect(40, start_y + i * 50, 240, 40)
+        mx, my = pygame.mouse.get_pos()
+        is_hover = rect.collidepoint(mx, my)
+        
+        # Draw button
+        pygame.draw.rect(screen, DIM_GREEN, rect)
+        pygame.draw.rect(screen, GREEN if is_hover else GREEN_SOFT, rect, 2)
+        
+        txt = font_v_small.render(opt["text"], True, GREEN if is_hover else GREEN_SOFT)
+        screen.blit(txt, (rect.x + 10, rect.y + 10))
+        rects.append(rect)
+    return rects
+
+# ============================================================
+# BOOT SEQUENCE
+# ============================================================
+def run_boot_sequence():
+    """Run boot sequence on startup"""
+    # Check for updates
+    update_info = updater.check_for_updates()
+    
+    # Run boot screen
+    if not boot_screen.run_boot_sequence(update_info):
+        return False
+    
+    # If update available, offer to install (for now just show info)
+    # In production, you could add user prompt here
+    
+    return True
 
 # ============================================================
 # MAIN LOOP
 # ============================================================
-active_event, ev_start, ev_dur = None, 0, 0
-next_event = time.time() + 120 
-
-active_quote, q_until, next_quote = "", 0, time.time()+20
-active_quote, q_until, next_quote = "", 0, time.time()+20
-active_face, last_face_change = "INIT", 0 
-
-# State for complex effects
-matrix_drops = []
-sonar_blips = []
-
-while True:
-    t_now = time.time()
+if __name__ == "__main__":
+    # Run boot sequence
+    print("Starting boot sequence...")
+    if not run_boot_sequence():
+        print("Boot interrupted")
+        pygame.quit()
+        sys.exit()
     
-    # ----------------------------------------------------
-    # SCHLAFMODUS
-    # ----------------------------------------------------
-# ----------------------------------------------------
-    # SCHLAFMODUS (ABENDS & WOCHENENDE)
-    # ----------------------------------------------------
-    now = datetime.now()
-    ist_wochenende = now.weekday() >= 5  # 5 = Samstag, 6 = Sonntag
-    ist_feierabend = now.hour >= 17 or now.hour < 7
+    active_event, ev_start, ev_dur = None, 0, 0
+    next_event = time.time() + 120
+    last_update_check = time.time() 
 
-    if ist_wochenende or ist_feierabend:
-        screen.fill(BLACK)
-        zzz_x, zzz_y = random.randint(50, W-150), random.randint(50, H-50)
+    active_quote, q_until, next_quote = "", 0, time.time()+20
+    active_face, last_face_change = "INIT", 0 
+    show_rpg = False
+
+    # State for complex effects
+    matrix_drops = []
+    sonar_blips = []
+    need_flashes = {} # {action: expiry_time}
+    critl_flash = 0   # expiry_time
+
+    while True:
+        t_now = time.time()
         
-        status_grund = "WEEKEND" if ist_wochenende else "NIGHT"
-        screen.blit(font_time.render("Zzzzz...", True, (0, 50, 0)), (zzz_x, zzz_y))
-        screen.blit(font_v_small.render(f"SLEEP MODE | {status_grund} | {now.strftime('%H:%M')}", True, (0, 30, 0)), (20, H-30))
+        # ----------------------------------------------------
+        # SCHLAFMODUS (ABENDS & WOCHENENDE)
+        # ----------------------------------------------------
+        now = datetime.now()
+        ist_wochenende = now.weekday() >= 5  # 5 = Samstag, 6 = Sonntag
+        ist_feierabend = now.hour >= 17 or now.hour < 7
         
-        pygame.display.flip()
-        time.sleep(2) 
+        # DETERMINE MOOD & IMG EARLY FOR EVENTS
+        mood = "neutral"
+        if active_event and "min" in active_event and 25 <= active_event["min"] <= 45: mood = "traurig" # Rads/Vision roughly
+        elif active_event and active_event["type"] == "critical": mood = "wuetend"
+        elif active_event and active_event.get("type") == "emote": mood = "gluecklich"
+        # Fallback/Default Mood logic from bottom of loop could be complex, 
+        # but for visual effects we just need A image.
+        
+        # Let's grab the standard image based on basic state
+        # We can refine this, but for now let's just use the current face logic helper
+        # actually, the original logic was:
+        # if active_event: set mood based on event
+        # else: set mood based on time/sentence
+        # We can just initialize img = None and handle it safely
+        
+        img = None
+        # Pre-fetch image for effects
+        # Simpler: Just resolve mood image here if possible, or use a default one for effects
+        base_img = critl_imgs.get(1) # Neutral as default
+    
+        # SCHLAFMODUS - Optimiert für niedrigen Stromverbrauch
+        if ist_wochenende or ist_feierabend:
+            screen.fill(BLACK)
+            
+            # Minimale Animation für niedrigen Stromverbrauch
+            pulse = (math.sin(t_now * 0.5) + 1) / 2  # Langsame Pulsierung
+            dim_val = int(20 + 30 * pulse)
+            sleep_color = (0, dim_val, 0)
+            
+            # Zentrierter "Zzz..." Text
+            zzz_text = "Zzzzz..."
+            zzz_surf = font_time.render(zzz_text, True, sleep_color)
+            zzz_x = (W - zzz_surf.get_width()) // 2
+            zzz_y = (H - zzz_surf.get_height()) // 2 - 40
+            screen.blit(zzz_surf, (zzz_x, zzz_y))
+            
+            # Status Info
+            status_grund = "WOCHENENDE" if ist_wochenende else "FEIERABEND"
+            status_text = f"SLEEP MODE | {status_grund} | {now.strftime('%H:%M')}"
+            status_surf = font_small.render(status_text, True, sleep_color)
+            screen.blit(status_surf, ((W - status_surf.get_width()) // 2, zzz_y + 80))
+            
+            # Minimaler Rahmen
+            pygame.draw.rect(screen, sleep_color, (20, 20, W-40, H-40), 1)
+            
+            pygame.display.flip()
+            time.sleep(2)  # Längere Pause = weniger CPU/GPU Last
+            
+            for e in pygame.event.get():
+                if e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_q): 
+                    pygame.quit()
+                    sys.exit()
+            continue
+            
+        clock.tick(FPS)
         for e in pygame.event.get():
-            if e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_q): pygame.quit(); sys.exit()
-        continue
-        
-    clock.tick(FPS)
-    for e in pygame.event.get():
-        if e.type == pygame.KEYDOWN and e.key in (pygame.K_ESCAPE, pygame.K_q): pygame.quit(); sys.exit()
-        
-        if e.type == pygame.MOUSEBUTTONDOWN:
-            mx, my = pygame.mouse.get_pos()
-            if pygame.Rect(W - 360, 40, 350, 350).collidepoint(mx, my):
-                active_event = random.choice(EVENTS)
-                ev_start = t_now
-                ev_dur = random.randint(active_event["min"], active_event["max"])
-                next_event = t_now + random.randint(120, 300)
-
-    label, remain, prog, t_s, t_e = get_status(now)
-    is_p = "PAUSE" in label or "VORBEREITUNG" in label
+            if e.type == pygame.QUIT:
+                critl.save_memory()
+                pygame.quit()
+                sys.exit()
+            
+            if e.type == pygame.KEYDOWN:
+                if e.key in [pygame.K_k, pygame.K_r]:
+                    show_rpg = not show_rpg
     
-    screen.blit(bg, (0, 0))
-
-    if active_event:
-        p_ev = clamp((t_now - ev_start) / ev_dur, 0, 1)
-        et = active_event["type"]
-
-        if et == "glitch_blue":
-            tint((0, 50, 100), 40)
-            sy = int(p_ev * H)
-            pygame.draw.line(screen, (100, 200, 255), (0, sy), (W, sy), 3)
-            pygame.draw.line(screen, (100, 200, 255), (0, sy-2), (W, sy-2), 1)
-        
-        elif et == "glitch_green":
-            for _ in range(600):
-                screen.set_at((random.randrange(W), random.randrange(H)), (100, 255, 100))
-
-        elif et == "rads":
-            tint((0, 255, 0), 50)
-            for _ in range(1000): 
-                screen.set_at((random.randrange(W), random.randrange(H)), GREEN)
-            isotopes = ["U-235", "Pu-239", "Cs-137", "I-131", "Sr-90", "Co-60"]
-            for i in range(5):
-                iso = isotopes[(int(t_now) + i) % len(isotopes)]
-                val = random.randint(400, 9999)
-                txt_str = f"SENSOR_0{i+1}: {iso} ... {val} mSv"
-                screen.blit(font_small.render(txt_str, True, GREEN_SOFT), (40, 80 + i * 35))
-            if int(t_now * 2) % 2 == 0:
-                warn_rect = pygame.Rect(40, H-160, 250, 30)
-                pygame.draw.rect(screen, DIM_GREEN, warn_rect)
-                pygame.draw.rect(screen, GREEN, warn_rect, 1)
-                screen.blit(font_v_small.render("WARNING: HAZARDOUS ENVIRONMENT", True, GREEN), (50, H-155))
-
-        elif et == "critical":
-            tint((100, 0, 0), 80)
-            shake = int(2 + 28 * p_ev)
-            ox, oy = random.randint(-shake, shake), random.randint(-shake, shake)
-            screen.blit(screen.copy(), (ox, oy))
-            if math.sin(t_now * (5 + 25 * p_ev)) > 0: tint((255, 0, 0), int(50 + 70 * p_ev))
-            if random.random() > 0.8:
-                bx, by = random.randint(0, W), random.randint(0, H)
-                pygame.draw.rect(screen, WHITE, (bx, by, random.randint(50,150), random.randint(10,50)))
-
-        elif et == "vats":
-            tint(DIM_BLUE, 80)
-            pygame.draw.rect(screen, BLUE, (0,0,W,H), 8)
-            for i in range(0, W, 40): pygame.draw.line(screen, (0, 60, 180), (i, 0), (i, H), 1)
-            for i in range(0, H, 40): pygame.draw.line(screen, (0, 60, 180), (0, i), (W, i), 1)
-            cx, cy = W//2, H//2
-            ang = t_now * 2
-            for i in range(4):
-                rad = ang + (i * math.pi / 2)
-                px = cx + 80 * math.cos(rad)
-                py = cy + 80 * math.sin(rad)
-                pygame.draw.line(screen, BLUE, (cx, cy), (px, py), 2)
-                pygame.draw.circle(screen, BLUE, (int(px), int(py)), 5)
-            v_rad = int(250 * p_ev)
-            if v_rad > 10: pygame.draw.circle(screen, BLUE, (cx, cy), v_rad, 2)
-            parts = ["HEAD", "TORSO", "L.ARM", "R.ARM", "LEGS"]
-            active_part = parts[int(t_now * 2) % len(parts)]
-            # BUGFIX HIER: Zeile war zu lang/komplex
-            for i, p in enumerate(parts):
-                col = WHITE if p == active_part else (0, 100, 200)
-                mark = "X" if p == active_part else " "
-                val_perc = random.randint(20, 95)
-                # Sicherer String-Aufbau
-                text_content = f"[{mark}] {p} - {val_perc}%"
-                txt = font_small.render(text_content, True, col)
+            if e.type == pygame.MOUSEBUTTONDOWN:
+                mx, my = pygame.mouse.get_pos()
                 
-                lx, ly = W - 210, 115 + i * 30
-                if p == active_part: pygame.draw.line(screen, BLUE, (cx, cy), (lx, ly), 1)
-                screen.blit(txt, (W - 200, 100 + i * 30))
-            pygame.draw.rect(screen, (0, 50, 100), (50, H-60, 200, 20))
-            fill = int((math.sin(t_now*3)+1)/2 * 200)
-            pygame.draw.rect(screen, BLUE, (50, H-60, fill, 20))
-            screen.blit(font_v_small.render("CRIT CHANCE", True, BLUE), (50, H-85))
-
-        elif et == "error":
-            screen.fill((0, 0, 150))
-            for i in range(int(p_ev * 12)):
-                txt = font_small.render(f"0x{random.randint(1000,9999)}F: SEGMENTATION_FAULT_CORE_{i}", True, WHITE)
-                screen.blit(txt, (40, 60 + i * 25))
-            for qy in range(100, 200, 5):
-                for qx in range(400, 500, 5):
-                    if random.random() > 0.5: pygame.draw.rect(screen, WHITE, (qx, qy, 5, 5))
-            bar_w = int(p_ev * 500)
-            pygame.draw.rect(screen, WHITE, (70, H-60, 500, 20), 2)
-            pygame.draw.rect(screen, WHITE, (74, H-56, bar_w, 12))
-            screen.blit(font_small.render("DUMPING PHYSICAL MEMORY TO DISK...", True, WHITE), (70, H-90))
-
-        elif et == "chem":
-            r = int(127+127*math.sin(t_now*4))
-            g = int(127+127*math.sin(t_now*4+2))
-            b = int(127+127*math.sin(t_now*4+4))
-            tint((r, g, b), 80)
-            off_x = int(math.sin(t_now * 5) * 10)
-            off_y = int(math.cos(t_now * 5) * 10)
-            if img: 
-                ghost = img.copy()
-                ghost.set_alpha(100)
-                screen.blit(ghost, (W - 360 + off_x, 40 + off_y))
-
-        elif et == "vision":
-            vp = int(130 + 30 * math.sin(t_now * 1.5))
-            tint((100, 255, 100), vp)
-            for i in range(3):
-                sy = int((t_now * [150, 250, 400][i] + i * 100) % H)
-                s_l = pygame.Surface((W, 3), pygame.SRCALPHA); s_l.fill((255, 255, 255, 60))
-                screen.blit(s_l, (0, sy))
-            pygame.draw.circle(screen, BLACK, (W//2, H//2), 350, 100) 
-            cx, cy = W//2, H//2
-            pygame.draw.line(screen, GREEN_SOFT, (cx-40, cy), (cx+40, cy), 1)
-            pygame.draw.line(screen, GREEN_SOFT, (cx, cy-40), (cx, cy+40), 1)
-            dist = int(140 + math.sin(t_now)*10)
-            screen.blit(font_v_small.render(f"DIST: {dist}m", True, GREEN), (cx+50, cy+50))
-            for i in range(0, W, 50):
-                off = (i + int(t_now * 50)) % W
-                pygame.draw.line(screen, GREEN_SOFT, (off, 0), (off, 15), 2)
-                if i % 100 == 0: screen.blit(font_v_small.render(f"{i}", True, GREEN_SOFT), (off-10, 20))
-            batt_w = int(50 - (p_ev * 50))
-            pygame.draw.rect(screen, GREEN, (W-70, 20, 50, 15), 1)
-            pygame.draw.rect(screen, GREEN, (W-70+1, 21, batt_w, 13))
-            screen.blit(font_v_small.render("BATT", True, GREEN), (W-70, 5))
-
-        elif et == "censored":
-            for y in range(0, H, 20):
-                line = "CONFIDENTIAL " * 10
-                off_x = int(t_now * 20) % 100
-                col = (30, 10, 0)
-                screen.blit(font_v_small.render(line, True, col), (-off_x, y))
-            tint(BLACK, 150)
-            lx, ly = W//2 - 25, H//2 - 120
-            pygame.draw.rect(screen, RED, (lx, ly+40, 50, 40)) 
-            pygame.draw.arc(screen, RED, (lx, ly, 50, 50), 0, math.pi, 3) 
-            if int(t_now * 4) % 2 == 0:
-                box_rect = (W//2 - 200, H//2 - 60, 400, 160)
-                pygame.draw.rect(screen, BLACK, box_rect)
-                pygame.draw.rect(screen, RED, box_rect, 5)
-                txt1 = font_body.render("ACCESS DENIED", True, RED)
-                txt2 = font_small.render("SECURITY CLEARANCE REQUIRED", True, RED)
-                screen.blit(txt1, (W//2 - txt1.get_width()//2, H//2 - 20))
-                screen.blit(txt2, (W//2 - txt2.get_width()//2, H//2 + 30))
-                bar_x, bar_y = W//2 - 150, H//2 + 70
-                pygame.draw.rect(screen, RED, (bar_x, bar_y, 300, 20), 1)
-                prog_w = int((t_now % 1) * 300)
-                pygame.draw.rect(screen, RED, (bar_x+2, bar_y+2, prog_w, 16))
-
-                scaled_img = pygame.transform.scale(ei, (w_new, h_new))
-                screen.blit(scaled_img, (W//2 - w_new//2, H//2 - h_new//2))
-
-        elif et == "matrix":
-            # Init drops if needed
-            if not matrix_drops:
-                for x in range(0, W, 15):
-                    matrix_drops.append({'x': x, 'y': random.randint(-H, 0), 'speed': random.randint(5, 15), 'char': chr(random.randint(33, 126))})
+                # --- TOUCH HANDLING FOR RPG MENU ---
+                if show_rpg:
+                    c_rect = draw_rpg_overlay() # Get the rect (though it's drawn later, we can check it)
+                    if c_rect.collidepoint(mx, my):
+                        show_rpg = False
+                        continue # Don't pass click through
+                else:
+                    sys_rect = draw_status_icons(time.time())
+                    if sys_rect.collidepoint(mx, my):
+                        show_rpg = True
+                        continue
+    
+                # --- TAMAGOTCHI FOOTER CLICK ---
+                needs_btns = draw_needs_footer()
+                for rect, action in needs_btns:
+                    if rect.collidepoint(mx, my):
+                        critl.care_action(action)
+                        need_flashes[action] = t_now + 0.3
+                        critl_flash = t_now + 0.5
+                        continue 
+    
+                # --- STORY CHOICES CLICK ---
+                choice_btns = draw_choice_ui()
+                for i, rect in enumerate(choice_btns):
+                    if rect.collidepoint(mx, my):
+                        critl.select_option(i)
+                        continue
+                # --- CRITL CLICK ---
+                if pygame.Rect(W - 360, 40, 350, 350).collidepoint(mx, my):
+                     if not active_event:
+                        critl_flash = t_now + 0.3
+                        # Rare chance for hacking or a story starting
+                        r_val = random.random()
+                        if r_val > 0.95:
+                            active_event = {"type":"hacking", "min":999, "max":999}
+                            ev_start = t_now
+                            ev_dur = 999
+                            hacking_game.reset_game()
+                            critl.trigger_speech(manual="ACHTUNG! Sicherheitslücke im Klassenzimmer-Sektor!")
+                        elif r_val > 0.4: # Increased from 0.4 diff to 0.6 total -> 60% chance for story on click
+                            critl.start_random_story()
+                        else:
+                            critl.trigger_speech(manual=random.choice([
+                                 "Pfoten weg! Ich arbeite!",
+                                 "0x07 (System Beep)... hör auf zu klicken!",
+                                 "Simulation: Ungeduld des Users erkannt.",
+                                 "Ja? Ich bin beschäftigt.",
+                                 "Klick lieber auf den Lehrplan."
+                            ]))
+                     else:
+                         critl.trigger_speech(manual="Siehst du nicht, dass hier gerade Chaos herrscht?!")
+                
+                # --- NEXT EVENT TIMER RESET IF CLICKED ---
+                next_event = t_now + random.randint(120, 300)
+                
+                if active_event and active_event["type"] == "hacking":
+                     res = hacking_game.handle_click((mx, my))
+                     if res == "EXIT":
+                          active_event = None
+    
+        label, remain, prog, t_s, t_e = get_status(now)
+        is_p = "PAUSE" in label or "VORBEREITUNG" in label
+        
+        screen.blit(bg, (0, 0))
+        
+        # UPDATE CRITL
+        temp_pi, _ = get_pi_stats()
+        critl.update(t_now, temp_pi, is_p, active_event)
+    
+        if active_event:
+            # Default duration if for some reason it slipped through
+            if 'ev_dur' not in locals() or ev_dur <= 0: ev_dur = 1
+            p_ev = clamp((t_now - ev_start) / ev_dur, 0, 1)
+            et = active_event["type"]
+    
+            if et == "hacking":
+                 hacking_game.draw(pygame.mouse.get_pos())
+    
+            elif et == "glitch_blue":
+                tint((0, 50, 100), 40)
+                sy = int(p_ev * H)
+                pygame.draw.line(screen, (100, 200, 255), (0, sy), (W, sy), 3)
+                pygame.draw.line(screen, (100, 200, 255), (0, sy-2), (W, sy-2), 1)
             
-            # Dark background
-            s = pygame.Surface((W,H)); s.set_alpha(50); s.fill(BLACK)
-            screen.blit(s, (0,0))
-            
-            # Draw and update drops
-            for drop in matrix_drops:
-                # Trail
+            elif et == "glitch_green":
+                for _ in range(600):
+                    screen.set_at((random.randrange(W), random.randrange(H)), (100, 255, 100))
+    
+            elif et == "rads":
+                # RADIATION SYMBOL ANIMATION
+                tint((40, 40, 0), 100) # Yellowish tint
+                
+                cx, cy = W//2, H//2
+                angle = t_now * 45 % 360
+                pulse = (math.sin(t_now * 8) + 1) / 2 # 0 to 1
+                
+                # Base Circle
+                color_base = (200, 180, 0)
+                color_sym = (0, 0, 0)
+                
+                # Draw Symbol Background (Yellow Circle)
+                pygame.draw.circle(screen, color_base, (cx, cy), 120)
+                pygame.draw.circle(screen, color_sym, (cx, cy), 20) # Center dot
+                
+                # Draw 3 Blades
+                for i in range(3):
+                    start_ang = angle + i * 120
+                    # Large arc requires rect
+                    # This is tricky in pure pygame primitives, let's allow lines
+                    # Simple approximation: Polygon triangles rotating?
+                    
+                    # Better: Use Arc?
+                    rect = pygame.Rect(cx-110, cy-110, 220, 220)
+                    pygame.draw.arc(screen, color_sym, rect, math.radians(start_ang), math.radians(start_ang + 60), 110)
+                    # Fill is hard with arc, let's just use thick lines or sector polygon if needed
+                    # For retro look, just thick arcs are okay or lines
+                    
+                    # Let's try polygon sectors for "filled" look
+                    pts = [(cx, cy)]
+                    for a in range(int(start_ang), int(start_ang + 60 + 1), 10):
+                       rad = math.radians(a)
+                       pts.append((cx + 110 * math.cos(rad), cy + 110 * math.sin(rad)))
+                    pygame.draw.polygon(screen, color_sym, pts)
+    
+    
+                # Flashing Warning
+                if pulse > 0.5:
+                    warn_box = pygame.Rect(cx - 150, cy + 140, 300, 50)
+                    pygame.draw.rect(screen, RED, warn_box)
+                    pygame.draw.rect(screen, (100, 0, 0), warn_box, 3)
+                    
+                    txt = font_body.render("HIGH RADIATION", True, BLACK)
+                    screen.blit(txt, (cx - txt.get_width()//2, cy + 150))
+                
+                # Sound viz (Geiger Ticks visual)
+                for i in range(10):
+                    rx = random.randint(20, W-20)
+                    ry = random.randint(20, H-20)
+                    pygame.draw.line(screen, GREEN, (rx, ry), (rx+5, ry+5), 1)
+    
+            elif et == "critical":
+                tint(RED, 60) # Red tint
+                shake = int(4 + 10 * p_ev)
+                ox, oy = random.randint(-shake, shake), random.randint(-shake, shake)
+                
+                # Copy screen to create shake/blur
+                screen.blit(screen.copy(), (ox, oy))
+                
+                # Critical Hit Text
+                cx, cy = W//2, H//2
+                
+                # Flash
+                if int(t_now * 10) % 2 == 0:
+                    pygame.draw.rect(screen, RED, (cx - 200, cy - 40, 400, 80))
+                    msg = font_time.render("CRITICAL HIT!", True, WHITE) # Large font
+                    screen.blit(msg, (cx - msg.get_width()//2, cy - 40))
+                else:
+                     msg = font_time.render("CRITICAL HIT!", True, RED)
+                     screen.blit(msg, (cx - msg.get_width()//2, cy - 40))
+    
+            elif et == "vats":
+                # IMPROVED VATS
+                tint((0, 20, 0), 100)
+                
+                # Scanlines for VATS usually go horizontal
+                for y in range(0, H, 4):
+                    pygame.draw.line(screen, (0, 50, 0), (0, y), (W, y))
+    
+                cx, cy = W//2, H//2
+                
+                # Target Reticle
+                pygame.draw.circle(screen, GREEN, (cx, cy), 150, 2)
+                pygame.draw.line(screen, GREEN, (cx-160, cy), (cx-50, cy), 2)
+                pygame.draw.line(screen, GREEN, (cx+50, cy), (cx+160, cy), 2)
+                pygame.draw.line(screen, GREEN, (cx, cy-160), (cx, cy-50), 2)
+                pygame.draw.line(screen, GREEN, (cx, cy+50), (cx, cy+160), 2)
+                
+                parts = ["HEAD", "TORSO", "L.ARM", "R.ARM", "R.LEG", "L.LEG"]
+                active_idx = int(t_now * 1.5) % len(parts)
+                active_part = parts[active_idx]
+                
+                # Draw Box for Part Stats
+                box_x, box_y = W - 220, H - 250
+                pygame.draw.rect(screen, DIM_GREEN, (box_x, box_y, 200, 200))
+                pygame.draw.rect(screen, GREEN, (box_x, box_y, 200, 200), 2)
+                
+                hit_chance = 95 - (active_idx * 12) + int(math.sin(t_now)*5)
+                if hit_chance > 95: hit_chance = 95
+                
+                screen.blit(font_body.render(f"{active_part}", True, GREEN_SOFT), (box_x + 10, box_y + 10))
+                screen.blit(font_large.render(f"{hit_chance}%", True, GREEN), (box_x + 10, box_y + 50))
+                
+                # Sound bar visualization
+                for i in range(10):
+                    h_ = random.randint(5, 40)
+                    pygame.draw.rect(screen, GREEN, (box_x + 10 + i*15, box_y + 120, 10, h_))
+    
+            elif et == "error":
+                # FATAL TERMINAL ERROR
+                screen.fill((0, 0, 120)) # Blue Screen of functionality
+                
+                # RobCo header
+                pygame.draw.rect(screen, WHITE, (50, 50, W-100, 40))
+                screen.blit(font_body.render("ROBCO INDUSTRIES UNIFIED OPERATING SYSTEM", True, (0,0,120)), (60, 55))
+                
+                # Error Box
+                pygame.draw.rect(screen, WHITE, (W//2 - 200, H//2 - 100, 400, 200), 2)
+                screen.blit(font_large.render("SYSTEM FAILURE", True, WHITE), (W//2 - 180, H//2 - 80))
+                
+                # Hex Dump
+                start_y = H//2 - 20
                 for i in range(5):
-                    alpha = 255 - i * 50
-                    char_render = font_small.render(drop['char'], True, (0, 255, 0))
-                    char_render.set_alpha(alpha)
-                    screen.blit(char_render, (drop['x'], drop['y'] - i * 15))
+                     hex_str = f"0x{random.randint(0, 65535):04X}  " + " ".join([f"{random.randint(0,255):02X}" for _ in range(8)])
+                     screen.blit(font_small.render(hex_str, True, WHITE), (W//2 - 190, start_y + i * 25))
+    
+                screen.blit(font_v_small.render("Press ANY KEY to reboot...", True, WHITE), (W//2 - 100, H//2 + 150))
+    
+            elif et == "chem":
+                r = int(127+127*math.sin(t_now*4))
+                g = int(127+127*math.sin(t_now*4+2))
+                b = int(127+127*math.sin(t_now*4+4))
+                tint((r, g, b), 80)
+                off_x = int(math.sin(t_now * 5) * 10)
+                off_y = int(math.cos(t_now * 5) * 10)
+                off_y = int(math.cos(t_now * 5) * 10)
+                if base_img: 
+                    ghost = base_img.copy()
+                    ghost.set_alpha(100)
+                    screen.blit(ghost, (W - 360 + off_x, 40 + off_y))
+    
+            elif et == "vision":
+                vp = int(130 + 30 * math.sin(t_now * 1.5))
+                tint((100, 255, 100), vp)
+                for i in range(3):
+                    sy = int((t_now * [150, 250, 400][i] + i * 100) % H)
+                    s_l = pygame.Surface((W, 3), pygame.SRCALPHA); s_l.fill((255, 255, 255, 60))
+                    screen.blit(s_l, (0, sy))
+                screen.blit(pygame.transform.flip(s_l, False, True), (0, sy-50))
+                pygame.draw.circle(screen, BLACK, (W//2, H//2), 350, 100) 
+                cx, cy = W//2, H//2
+                pygame.draw.line(screen, GREEN_SOFT, (cx-40, cy), (cx+40, cy), 1)
+                pygame.draw.line(screen, GREEN_SOFT, (cx, cy-40), (cx, cy+40), 1)
+                dist = int(140 + math.sin(t_now)*10)
+                screen.blit(font_v_small.render(f"DIST: {dist}m", True, GREEN), (cx+50, cy+50))
+                for i in range(0, W, 50):
+                    off = (i + int(t_now * 50)) % W
+                    pygame.draw.line(screen, GREEN_SOFT, (off, 0), (off, 15), 2)
+                    if i % 100 == 0: screen.blit(font_v_small.render(f"{i}", True, GREEN_SOFT), (off-10, 20))
+                batt_w = int(50 - (p_ev * 50))
+                pygame.draw.rect(screen, GREEN, (W-70, 20, 50, 15), 1)
+                pygame.draw.rect(screen, GREEN, (W-70+1, 21, batt_w, 13))
+                screen.blit(font_v_small.render("BATT", True, GREEN), (W-70, 5))
+    
+            elif et == "censored":
+                for y in range(0, H, 20):
+                    line = "CONFIDENTIAL " * 10
+                    off_x = int(t_now * 20) % 100
+                    col = (30, 10, 0)
+                    screen.blit(font_v_small.render(line, True, col), (-off_x, y))
+                tint(BLACK, 150)
+                lx, ly = W//2 - 25, H//2 - 120
+                pygame.draw.rect(screen, RED, (lx, ly+40, 50, 40)) 
+                pygame.draw.arc(screen, RED, (lx, ly, 50, 50), 0, math.pi, 3) 
+                if int(t_now * 4) % 2 == 0:
+                    box_rect = (W//2 - 200, H//2 - 60, 400, 160)
+                    pygame.draw.rect(screen, BLACK, box_rect)
+                    pygame.draw.rect(screen, RED, box_rect, 5)
+                    txt1 = font_body.render("ACCESS DENIED", True, RED)
+                    txt2 = font_small.render("SECURITY CLEARANCE REQUIRED", True, RED)
+                    screen.blit(txt1, (W//2 - txt1.get_width()//2, H//2 - 20))
+                    screen.blit(txt2, (W//2 - txt2.get_width()//2, H//2 + 30))
+                    bar_x, bar_y = W//2 - 150, H//2 + 70
+                    pygame.draw.rect(screen, RED, (bar_x, bar_y, 300, 20), 1)
+                    prog_w = int((t_now % 1) * 300)
+                    pygame.draw.rect(screen, RED, (bar_x+2, bar_y+2, prog_w, 16))
+    
+                    scaled_img = pygame.transform.scale(base_img, (300, 300))
+                    screen.blit(scaled_img, (W//2 - 150, H//2 - 150))
+    
+            elif et == "matrix":
+                # Init drops if needed
+                if not matrix_drops:
+                    for x in range(0, W, 15):
+                        matrix_drops.append({'x': x, 'y': random.randint(-H, 0), 'speed': random.randint(5, 15), 'char': chr(random.randint(33, 126))})
                 
-                drop['y'] += drop['speed']
-                if random.random() > 0.95: drop['char'] = chr(random.randint(33, 126))
-                if drop['y'] > H: 
-                    drop['y'] = random.randint(-50, 0)
-                    drop['speed'] = random.randint(5, 15)
-
-        elif et == "sonar":
-            tint((0, 20, 0), 30)
-            cx, cy = W//2, H//2
-            radius = min(W, H) // 2 - 20
+                # Dark background
+                s = pygame.Surface((W,H)); s.set_alpha(50); s.fill(BLACK)
+                screen.blit(s, (0,0))
+                
+                # Draw and update drops
+                for drop in matrix_drops:
+                    # Trail
+                    for i in range(5):
+                        alpha = 255 - i * 50
+                        char_render = font_small.render(drop['char'], True, (0, 255, 0))
+                        char_render.set_alpha(alpha)
+                        screen.blit(char_render, (drop['x'], drop['y'] - i * 15))
+                    
+                    drop['y'] += drop['speed']
+                    if random.random() > 0.95: drop['char'] = chr(random.randint(33, 126))
+                    if drop['y'] > H: 
+                        drop['y'] = random.randint(-50, 0)
+                        drop['speed'] = random.randint(5, 15)
+    
+            elif et == "sonar":
+                tint((0, 20, 0), 30)
+                cx, cy = W//2, H//2
+                radius = min(W, H) // 2 - 20
+                
+                # Grid
+                pygame.draw.circle(screen, (0, 100, 0), (cx, cy), radius, 2)
+                pygame.draw.circle(screen, (0, 60, 0), (cx, cy), radius*2//3, 1)
+                pygame.draw.circle(screen, (0, 60, 0), (cx, cy), radius//3, 1)
+                pygame.draw.line(screen, (0, 60, 0), (cx, cy-radius), (cx, cy+radius), 1)
+                pygame.draw.line(screen, (0, 60, 0), (cx-radius, cy), (cx+radius, cy), 1)
+    
+                # Sweep
+                angle = (t_now * 2) % (2 * math.pi)
+                ex = cx + math.cos(angle) * radius
+                ey = cy + math.sin(angle) * radius
+                pygame.draw.line(screen, (0, 255, 0), (cx, cy), (ex, ey), 3)
+                
+                # Blips
+                if random.random() > 0.98:
+                    dist = random.randint(50, radius)
+                    a = random.random() * 2 * math.pi
+                    sonar_blips.append({'x': cx + math.cos(a)*dist, 'y': cy + math.sin(a)*dist, 'life': 1.0})
+                
+                for blip in sonar_blips[:]:
+                    blip['life'] -= 0.02
+                    if blip['life'] <= 0: sonar_blips.remove(blip); continue
+                    col = (0, int(255*blip['life']), 0)
+                    pygame.draw.circle(screen, col, (int(blip['x']), int(blip['y'])), 5)
+    
+            elif et == "bioscan":
+                tint((0, 0, 50), 50)
+                scan_y = int((math.sin(t_now) + 1) / 2 * H)
+                
+                # Scan line
+                pygame.draw.line(screen, (0, 255, 255), (0, scan_y), (W, scan_y), 5)
+                s_grad = pygame.Surface((W, 50), pygame.SRCALPHA)
+                for i in range(50):
+                    pygame.draw.line(s_grad, (0, 255, 255, 100-i*2), (0, i), (W, i))
+                screen.blit(s_grad, (0, scan_y))
+                screen.blit(pygame.transform.flip(s_grad, False, True), (0, scan_y-50))
+                
+                # Data side
+                pygame.draw.rect(screen, (0, 50, 100), (W-200, 100, 180, 300), 2)
+                for i in range(10):
+                    w_bar = int((math.sin(t_now*5 + i) + 1) * 80)
+                    pygame.draw.rect(screen, (0, 200, 255), (W-190, 120 + i*25, w_bar, 15))
+                
+                screen.blit(font_small.render(f"POS: {scan_y}", True, (0, 255, 255)), (W-180, 80))
+                if abs(scan_y - H//2) < 50:
+                     screen.blit(font_body.render("SUBJECT DETECTED", True, WARNING), (W//2-100, H//2))
+            if t_now - ev_start >= ev_dur: 
+                active_event = None
+                matrix_drops = [] # Reset state
+                sonar_blips = [] # Reset state
+    
+    
+        else:
+            # --- DASHBOARD ---
+            # Drawing moved to the bottom unified section
+            pass
             
-            # Grid
-            pygame.draw.circle(screen, (0, 100, 0), (cx, cy), radius, 2)
-            pygame.draw.circle(screen, (0, 60, 0), (cx, cy), radius*2//3, 1)
-            pygame.draw.circle(screen, (0, 60, 0), (cx, cy), radius//3, 1)
-            pygame.draw.line(screen, (0, 60, 0), (cx, cy-radius), (cx, cy+radius), 1)
-            pygame.draw.line(screen, (0, 60, 0), (cx-radius, cy), (cx+radius, cy), 1)
-
-            # Sweep
-            angle = (t_now * 2) % (2 * math.pi)
-            ex = cx + math.cos(angle) * radius
-            ey = cy + math.sin(angle) * radius
-            pygame.draw.line(screen, (0, 255, 0), (cx, cy), (ex, ey), 3)
+            pi_temp, pi_watts = get_pi_stats()
+            stat_text = font_v_small.render(f"TEMP: {pi_temp:.1f}C  PWR: {pi_watts:.1f}W", True, GREEN_SOFT)
+            screen.blit(stat_text, (20, 10))
+            screen.blit(font_time.render(now.strftime("%H:%M"), True, GREEN), (30, 45))
             
-            # Blips
-            if random.random() > 0.98:
-                dist = random.randint(50, radius)
-                a = random.random() * 2 * math.pi
-                sonar_blips.append({'x': cx + math.cos(a)*dist, 'y': cy + math.sin(a)*dist, 'life': 1.0})
+            draw_status_icons(t_now)
+            wd = {"Monday":"MONTAG","Tuesday":"DIENSTAG","Wednesday":"MITTWOCH","Thursday":"DONNERSTAG","Friday":"FREITAG","Saturday":"SAMSTAG","Sunday":"SONNTAG"}
+            screen.blit(font_body.render(f"{wd.get(now.strftime('%A'),'TAG')}, {now.strftime('%d.%m.')}", True, GREEN_SOFT), (35, 120))
             
-            for blip in sonar_blips[:]:
-                blip['life'] -= 0.02
-                if blip['life'] <= 0: sonar_blips.remove(blip); continue
-                col = (0, int(255*blip['life']), 0)
-                pygame.draw.circle(screen, col, (int(blip['x']), int(blip['y'])), 5)
-
-        elif et == "bioscan":
-            tint((0, 0, 50), 50)
-            scan_y = int((math.sin(t_now) + 1) / 2 * H)
+            # SMILIE AUS DATEI
+            if t_now - last_face_change > 5:
+                if CRITL_FACES:
+                    active_face = random.choice(CRITL_FACES)
+                else:
+                    active_face = "NO FILE"
+                last_face_change = t_now
             
-            # Scan line
-            pygame.draw.line(screen, (0, 255, 255), (0, scan_y), (W, scan_y), 5)
-            s_grad = pygame.Surface((W, 50), pygame.SRCALPHA)
-            for i in range(50):
-                pygame.draw.line(s_grad, (0, 255, 255, 100-i*2), (0, i), (W, i))
-            screen.blit(s_grad, (0, scan_y))
-            screen.blit(pygame.transform.flip(s_grad, False, True), (0, scan_y-50))
+            # Rendern
+            screen.blit(font_smilie.render(active_face, True, (20, 100, 20)), (37, 182))
+            screen.blit(font_smilie.render(active_face, True, GREEN), (35, 180))
             
-            # Data side
-            pygame.draw.rect(screen, (0, 50, 100), (W-200, 100, 180, 300), 2)
-            for i in range(10):
-                w_bar = int((math.sin(t_now*5 + i) + 1) * 80)
-                pygame.draw.rect(screen, (0, 200, 255), (W-190, 120 + i*25, w_bar, 15))
+            draw_bar(20, H-110, 600, 45, prog, is_p, remain, label, t_s, t_e)
             
-            screen.blit(font_small.render(f"POS: {scan_y}", True, (0, 255, 255)), (W-180, 80))
-            if abs(scan_y - H//2) < 50:
-                 screen.blit(font_body.render("SUBJECT DETECTED", True, WARNING), (W//2-100, H//2))
-        if t_now - ev_start >= ev_dur: 
-            active_event = None
-            matrix_drops = [] # Reset state
-            sonar_blips = [] # Reset state
-
-
-    else:
-        # --- DASHBOARD ---
-        mood = "müde" if is_p else ("genervt" if remain <= 120 else "neutral")
-        img = critl_imgs.get(1 if mood=="neutral" else (2 if mood=="genervt" else 3))
-        if img: screen.blit(img, (W - 360, 40)) 
+            # Draw Controls (Left Side)
+            # draw_games_button() removed
+    
+        draw_edge_scan(t_now)
+        if not active_event and t_now > next_event:
+            active_event = random.choice(EVENTS)
+            ev_start, ev_dur = t_now, random.randint(active_event["min"], active_event["max"])
+            next_event = t_now + random.randint(120, 300) 
+            # TRIGGER EVENT SPEECH
+            critl.trigger_event_speech(active_event["type"])
+            
+        # --- DRAW CRITL ---
+        img_idx = critl.get_image_index(is_p)
+        critl_img = critl_imgs.get(img_idx)
         
-        pi_temp, pi_watts = get_pi_stats()
-        stat_text = font_v_small.render(f"TEMP: {pi_temp:.1f}C  PWR: {pi_watts:.1f}W", True, GREEN_SOFT)
-        screen.blit(stat_text, (20, 10))
-        screen.blit(font_time.render(now.strftime("%H:%M"), True, GREEN), (30, 45))
-        
-        draw_status_icons(t_now)
-        wd = {"Monday":"MONTAG","Tuesday":"DIENSTAG","Wednesday":"MITTWOCH","Thursday":"DONNERSTAG","Friday":"FREITAG","Saturday":"SAMSTAG","Sunday":"SONNTAG"}
-        screen.blit(font_body.render(f"{wd.get(now.strftime('%A'),'TAG')}, {now.strftime('%d.%m.')}", True, GREEN_SOFT), (35, 120))
-        
-        # SMILIE AUS DATEI
-        if t_now - last_face_change > 5:
-            if CRITL_FACES:
-                active_face = random.choice(CRITL_FACES)
+        # Story Image Override
+        if critl.active_image_override:
+            # Check if it's a numeric index (for mood overrides) or a string key (for story assets)
+            try:
+                ov_idx = int(critl.active_image_override)
+                override_img = critl_imgs.get(ov_idx)
+            except (ValueError, TypeError):
+                override_img = get_story_asset(critl.active_image_override)
+            
+            if override_img:
+                # If it's a story asset, we might want to center it or show it prominently
+                screen.blit(override_img, (W - 360, 40))
             else:
-                active_face = "NO FILE"
-            last_face_change = t_now
+                # Fallback to standard mood image
+                if critl_img: screen.blit(critl_img, (W - 360, 40))
+        else:
+            if critl_img:
+                screen.blit(critl_img, (W - 360, 40))
         
-        # Rendern
-        screen.blit(font_smilie.render(active_face, True, (20, 100, 20)), (37, 182))
-        screen.blit(font_smilie.render(active_face, True, GREEN), (35, 180))
+        # CRITL Flash Effect
+        if t_now < critl_flash:
+            s_flash = pygame.Surface((350, 350), pygame.SRCALPHA)
+            s_flash.fill((255, 150, 0, 80)) # Light orange tint
+            screen.blit(s_flash, (W - 360, 40), special_flags=pygame.BLEND_RGBA_ADD)
         
-        draw_bar(20, H-80, 600, 45, prog, is_p, remain, label, t_s, t_e)
+        # Story Effects
+        if critl.active_effect == "glitch":
+            for _ in range(50):
+                gx, gy = random.randint(0, W), random.randint(0, H)
+                gw, gh = random.randint(10, 100), random.randint(2, 5)
+                pygame.draw.rect(screen, GREEN, (gx, gy, gw, gh))
+        elif critl.active_effect == "red_alert":
+            pulse = (math.sin(time.time() * 5) + 1) / 2
+            tint(RED, int(20 + 30 * pulse))
+            
+        # --- DRAW NEEDS FOOTER ---
+        draw_needs_footer()
         
-        if not active_quote and t_now > next_quote:
-            active_quote, q_until, next_quote = random.choice(CRITL_QUOTES[mood]), t_now+6, t_now+random.randint(30,60)
-        
-        if active_quote: draw_text_wrapped("CRITL: "+active_quote, 35, H-175, font_small, GREEN_SOFT)
-
-    draw_edge_scan(t_now)
-    sl = pygame.Surface((W, H), pygame.SRCALPHA)
-    for y in range(0, H, 6): pygame.draw.line(sl, (0, 10, 0, 40), (0, y), (W, y), 1)
-    screen.blit(sl, (0,0))
-    if not active_event and t_now > next_event:
-        active_event = random.choice(EVENTS)
-        ev_start, ev_dur = t_now, random.randint(active_event["min"], active_event["max"])
-        next_event = t_now + random.randint(120, 300) 
-    pygame.display.flip()
+        # --- DRAW SPEECH ---
+        speech = critl.get_current_speech()
+        if speech:
+            draw_speech_bubble(speech, (W - 300, 150))
+            
+        # --- DRAW CHOICES ---
+        draw_choice_ui()
+    
+        if show_rpg:
+            draw_rpg_overlay()
+            
+        # --- GLOBAL SCANLINES (Drawn over EVERYTHING for Fallout vibe) ---
+        sl = pygame.Surface((W, H), pygame.SRCALPHA)
+        for y in range(0, H, 3): # Thicker/more frequent scanlines
+            pygame.draw.line(sl, (0, 20, 0, 50), (0, y), (W, y), 1)
+        screen.blit(sl, (0,0))
+    
+        pygame.display.flip()

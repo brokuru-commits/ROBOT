@@ -1,0 +1,37 @@
+# CRITL OS Boot Messages
+# Format: category:message
+
+# System Checks
+check:Initialisiere Quantenprozessor...
+check:Lade neuronale Matrix...
+check:Kalibriere Sarkasmus-Modul...
+check:Prüfe Persönlichkeits-Kernel...
+check:Synchronisiere Zeitschleife...
+check:Aktiviere Tamagotchi-Subsystem...
+check:Lade Hacking-Protokolle...
+check:Initialisiere Story-Engine...
+check:Verbinde mit Schulnetzwerk...
+check:Prüfe Stundenplan-Datenbank...
+
+# Success Messages
+success:OK
+success:BEREIT
+success:GELADEN
+success:ONLINE
+success:AKTIV
+
+# Component Names
+component:CRITL CORE v2.1
+component:PERSONALITY MODULE
+component:TAMAGOTCHI ENGINE
+component:HACKING SUBSYSTEM
+component:STORY PROCESSOR
+component:EVENT MANAGER
+component:GRAPHICS RENDERER
+component:AUDIO SYSTEM
+
+# Boot Headers
+header:ROBCO INDUSTRIES UNIFIED OPERATING SYSTEM
+header:COPYRIGHT 2075-2077 ROBCO INDUSTRIES
+header:CRITL OS VERSION 2.1.0
+header:INITIALISIERUNG...
