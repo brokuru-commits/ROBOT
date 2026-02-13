@@ -173,8 +173,13 @@ EVENTS = [
 # INIT
 # ============================================================
 pygame.init()
-screen = pygame.display.set_mode((W,H))
-pygame.mouse.set_visible(True)
+# Mit pygame.FULLSCREEN | pygame.NOFRAME wird es wieder echtes Vollbild ohne Ränder
+screen = pygame.display.set_mode((W,H), pygame.FULLSCREEN | pygame.NOFRAME)
+
+# Hier entscheidest du über den Mauszeiger:
+# True  = Mauszeiger ist sichtbar (gut für Touch/Bedienung)
+# False = Mauszeiger ist unsichtbar (besserer Retro-Look)
+pygame.mouse.set_visible(False)
 clock = pygame.time.Clock()
 
 def load_font(size):
