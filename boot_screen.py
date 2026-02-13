@@ -52,7 +52,7 @@ class BootScreen:
     def _load_boot_messages(self) -> dict:
         """Load boot messages from file"""
         messages = {
-            'header': ['ROBCO INDUSTRIES UNIFIED OPERATING SYSTEM', 'CRITL OS VERSION 2.1.0'],
+            'header': ['ROBCO INDUSTRIES UNIFIED OPERATING SYSTEM', 'HEUM-TEC CRITL OS VERSION 2.1.0'],
             'check': ['Initialisiere System...', 'Lade Module...', 'Prüfe Integrität...'],
             'success': ['OK', 'BEREIT', 'GELADEN'],
             'component': ['CRITL CORE', 'PERSONALITY MODULE', 'TAMAGOTCHI ENGINE']
@@ -182,7 +182,7 @@ class BootScreen:
                 y_pos += 35
             
             # Copyright
-            copyright_text = "COPYRIGHT 2075-2077 ROBCO INDUSTRIES"
+            copyright_text = "COPYRIGHT 2075-2077 ROBCO INDUSTRIES - HEUM-TEC DIVISION"
             copyright = self.font_tiny.render(copyright_text, True, self.DIM_GREEN)
             self.screen.blit(copyright, (30, y_pos + 20))
             
