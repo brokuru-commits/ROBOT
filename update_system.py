@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+CRITL OS Update System
+Manages version checking, downloading, and installing updates
+"""
 
 import os
+import sys
 import json
 import time
+import random
+import socket
+from typing import Dict, Optional, Tuple, Callable
 import urllib.request
 import urllib.error
-from typing import Optional, Dict, Tuple
+from urllib import request, error
 
 class UpdateSystem:
     """Manages version checking and updates for CRITL OS"""
