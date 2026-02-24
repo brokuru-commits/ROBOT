@@ -1058,6 +1058,7 @@ if __name__ == "__main__":
             # TRIGGER EVENT SPEECH
             critl.trigger_event_speech(active_event["type"])
             
+        if not active_event:
             # --- DRAW CRITL ---
             img_idx = critl.get_image_index(is_p)
             critl_img = critl_imgs.get(img_idx)
