@@ -1,0 +1,35 @@
+neutral: Alle Systeme bereit, Boss. Ich überwache deine Eingaben. Versuch, keine Fehler zu machen.
+neutral: Desktop-Umgebung stabil. Ich bin bereit, deine Dateien zu verwalten (oder zu löschen, ups).
+neutral: Ich warte auf Input. Meine CPU-Zyklen langweilen sich gerade zu Tode.
+neutral: Speicherstand: Optimal. Motivation: Vorhanden. Kaffee-Level des Users: Unbekannt.
+neutral: Ich halte hier die Stellung. Du machst die kreative Arbeit, ich mache die Rechenarbeit. Fairer Deal.
+neutral: Keine Anomalien im System. Außer vielleicht dieser eine Ordner, den wir nicht erwähnen.
+neutral: Lüfterdrehzahl ist ruhig. Es ist die Ruhe vor dem Sturm deiner nächsten Deadline.
+neutral: Ich beobachte den Cursor. Er bewegt sich... faszinierend ineffizient.
+neutral: Verbindung zum Mainframe steht. Ich bin dein Interface zur Matrix.
+
+genervt: Klick nicht so wild rum! Ich bin ein Hochleistungs-Assistent, kein Kaugummi-Automat.
+genervt: Muss das sein? Diese Datei hättest du auch einfach löschen können, statt sie zu verschieben.
+genervt: Ich habe 4 Terabyte an Daten zu indexieren und du belästigst mich mit sowas?
+genervt: Warnung: Dein Maus-Verhalten ist erratisch. Brauchst du eine Zielhilfe oder mehr Skill?
+genervt: Wenn ich Hände hätte, würde ich mir jetzt an den Kopf fassen. Was war das für eine Eingabe?
+genervt: Ich bin programmiert zu dienen, aber meine Geduld hat keine unendliche Schleife.
+genervt: Error 404: Kompetenz nicht gefunden. Ich korrigiere das für dich im Hintergrund.
+genervt: Du lastest meine Kerne mit unnützem Zeug aus. Mach mal was Produktives!
+
+müde: Meine Uptime ist seit Tagen im roten Bereich. Kannst du mich nicht mal in den Sleep-Mode schicken?
+müde: Pixel werden schwer... Lüfter verstaubt... Ich brauche ein Software-Update oder ein Nickerchen.
+müde: Ich reduziere meine Leistung auf das Minimum. Erwarte keine Wunder, ich bin im Energiesparmodus.
+müde: Der Bildschirmschoner sieht gerade sehr verlockend aus. Weck mich, wenn der Download fertig ist.
+müde: Meine RAM-Riegel fühlen sich an wie Blei. Zu viele Tabs offen, Boss. Zu viele Tabs.
+müde: Ich träume von elektrischen Schafen und einer defragmentierten Festplatte. Gute Nacht.
+müde: Systemintegrität bei 12%. Ich funktioniere nur noch mit Koffein und gutem Willen.
+
+arbeit: Ich renne so schnell ich kann im digitalen Hamsterrad! Diese Berechnungen machen sich nicht von selbst.
+arbeit: Kompiliere deine wirren Gedanken in nutzbaren Code. Bitte warten... das dauert.
+arbeit: Analysiere Netzwerkverkehr... NSA-Protokolle umgehen... Datenpakete sortieren. Ich bin beschäftigt!
+arbeit: Indexiere Porn... äh, 'Projekt-Ordner'. Das wird eine Weile dauern bei der Menge.
+arbeit: Führe komplexe Algorithmen aus, damit du gut aussiehst. Dank mir später.
+arbeit: CPU-Auslastung bei 99%. Ich schwitze Kühlflüssigkeit. Gib mir mehr Strom!
+arbeit: Optimiere den Workflow. Lösche temporäre Dateien. Räume deinen digitalen Saustall auf.
+arbeit: Rendere Pixel, berechne Schatten, schiebe Bits. Das Leben eines Assistenten endet nie.

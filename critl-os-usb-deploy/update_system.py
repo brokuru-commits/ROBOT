@@ -1,20 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-CRITL OS Update System
-Manages version checking, downloading, and installing updates
-"""
 
 import os
-import sys
 import json
 import time
-import random
-import socket
-from typing import Dict, Optional, Tuple, Callable
 import urllib.request
 import urllib.error
-from urllib import request, error
+from typing import Optional, Dict, Tuple
 
 class UpdateSystem:
     """Manages version checking and updates for CRITL OS"""
@@ -86,8 +78,7 @@ class UpdateSystem:
             req = urllib.request.Request(update_url)
             req.add_header('User-Agent', 'CRITL-OS-Updater/2.1')
             
-            # Faster timeout for initial connection
-            with urllib.request.urlopen(req, timeout=2) as response:
+            with urllib.request.urlopen(req, timeout=5) as response:
                 data = json.loads(response.read().decode('utf-8'))
                 
                 # Parse version from tag_name (e.g., "v2.2.0" -> "2.2.0")
@@ -102,8 +93,8 @@ class UpdateSystem:
                         'published_at': data.get('published_at', '')
                     }
         
-        except (urllib.error.URLError, socket.timeout, socket.error) as e:
-            print(f"Network error checking for updates (Offline mode?): {e}")
+        except urllib.error.URLError as e:
+            print(f"Network error checking for updates: {e}")
         except Exception as e:
             print(f"Error checking for updates: {e}")
         
