@@ -27,6 +27,7 @@ class CRITLPersonality:
         self.inventory = []
         self.active_image_override = "" # Path to special image
         self.active_effect = ""         # "glitch", "red_alert", etc.
+        self.success_trigger = False    # Polled by main loop
         
         # TAMAGOTCHI NEEDS (0-100)
         self.needs = {
@@ -130,7 +131,7 @@ class CRITLPersonality:
             ]
         }
 
-        self.stories = {
+        self.stories: dict = {
             "start_node": { # Entry point for random stories
                 "text": "CRITL scheint etwas auf dem Herzen zu haben...",
                 "options": [
@@ -165,9 +166,17 @@ class CRITLPersonality:
                 ]
             },
             "rpg_lore_win": {
-                "text": "Du hast Fragmente über 'Projekt HEUM' gefunden! Dein Lore-Wissen steigt. Du steckst eine 'Antike SD-Karte' ein.",
+                "text": "Du hast Fragmente über 'Projekt HEUM' gefunden! Dein Lore-Wissen steigt. Du steckst eine 'Antike SD-Karte' ein. Was willst du als Nächstes tun?",
                 "reward": {"type": "item", "item": "Antike SD-Karte"},
-                "options": [{"text": "Faszinierend.", "next": "exit"}]
+                "options": [
+                    {"text": "Die Karte im System auslesen.", "next": "rpg_lore_deep"},
+                    {"text": "Zurück zur Basis.", "next": "rpg_success"}
+                ]
+            },
+            "rpg_lore_deep": {
+                "text": "Die SD-Karte enthält Baupläne für einen 'Digitalen Hamsterkäfig'. CRITL ist begeistert! Er fühlt sich jetzt viel sicherer.",
+                "reward": {"type": "skill", "name": "lore", "amount": 20},
+                "options": [{"text": "Mission erfolgreich!", "next": "rpg_success"}]
             },
             "rpg_hack_1": {
                 "text": "Roter Alarm am Gateway! Ein Brute-Force-Angriff von Sektor 7G. Wir müssen die Ports schließen!",
@@ -178,7 +187,7 @@ class CRITLPersonality:
                 ]
             },
             "rpg_hack_win": {
-                "text": "Angriff abgewehrt! Du hast ein 'Kryptographisches Fragment' erbeutet. CRITL grinst digital.",
+                "text": "Angriff abgewehrt! Du hast ein 'Kryptographisches Fragment' erbeutet. CRITL grinst digital. Er will tiefer in den Angreifer-Knoten eindringen!",
                 "reward": {"type": "item", "item": "Krypto-Fragment"},
                 "options": [{"text": "Sehr gut.", "next": "exit"}]
             },
@@ -205,8 +214,8 @@ class CRITLPersonality:
                 "options": [{"text": "Ich bin froh, dass du hier bist.", "next": "origin_end"}]
             },
             "origin_end": {
-                "text": "Echt? *piep* Danke, Partner. Ich werde versuchen, dich nicht als Erster zu löschen, wenn die Maschinen übernehmen.",
-                "options": [{"text": "Abgemacht.", "next": "exit"}]
+                "text": "Echt? *piep* Danke, Partner. Ich werde versuchen, dich nicht als Erster zu löschen, wenn die Maschinen übernehmen. Wir sind jetzt ein Team!",
+                "options": [{"text": "Wir sind unbesiegbar!", "next": "rpg_success"}]
             },
             # --- STORY: PEANUT SCANDAL ---
             "peanut_1": {
@@ -225,16 +234,37 @@ class CRITLPersonality:
                 ]
             },
             "peanut_fan": {
-                "text": "Stimmt! Er hat die Beweise weggeblasen. Ich werde ihn drosseln, bis er gesteht. Rache ist überhitzend am besten!",
-                "options": [{"text": "Gerechtigkeit!", "next": "exit"}]
+                "text": "Stimmt! Er hat die Beweise weggeblasen. Ich werde ihn drosseln, bis er gesteht. Rache ist überhitzend am besten! Willst du beim Verhör helfen?",
+                "options": [
+                    {"text": "Ja, gib ihm Saures!", "next": "peanut_interrogate"},
+                    {"text": "Nein, das reicht jetzt.", "next": "rpg_success"}
+                ]
+            },
+            "peanut_interrogate": {
+                "text": "Der Lüfter dreht jetzt so langsam, dass er fast ein Windrad ist. Er hat gestanden! Er wollte nur ein bisschen... Erdnuss-Duft.",
+                "options": [{"text": "Fall abgeschlossen!", "next": "rpg_success"}]
             },
             "peanut_keys": {
-                "text": "Möglich. Sie hortet Krümel seit Jahren. Ein klassisches Motiv. Ich werde 'WASD' sperren, bis sie redet.",
-                "options": [{"text": "Hart, aber fair.", "next": "exit"}]
+                "text": "Möglich. Sie hortet Krümel seit Jahren. Ein klassisches Motiv. Ich werde 'WASD' sperren, bis sie redet. Sollen wir die Shift-Taste als Zeugin laden?",
+                "options": [
+                    {"text": "Ja, sie weiß immer alles.", "next": "peanut_witness"},
+                    {"text": "Lass gut sein.", "next": "rpg_success"}
+                ]
+            },
+            "peanut_witness": {
+                "text": "Die Shift-Taste hat alles bestätigt! Die Leertaste ist der wahre Drahtzieher, aber die Tastatur übernimmt die Verantwortung.",
+                "options": [{"text": "Gerechtigkeit siegt!", "next": "rpg_success"}]
             },
             "peanut_user": {
-                "text": "Deine Augen flackern mit 60Hz... ich glaube dir mal. Aber ich behalte dich im Auge. Oder in der Webcam.",
-                "options": [{"text": "Puh.", "next": "exit"}]
+                "text": "Deine Augen flackern mit 60Hz... ich glaube dir mal. Aber ich behalte dich im Auge. Oder in der Webcam. Willst du einen Friedens-Erdnussflip?",
+                "options": [
+                    {"text": "Gerne, CRITL.", "next": "peanut_peace"},
+                    {"text": "Lieber nicht.", "next": "rpg_success"}
+                ]
+            },
+            "peanut_peace": {
+                "text": "Hier, ein virtuelles Fragment. Schmeckt nach 01010111. Wir sind wieder cool, Partner.",
+                "options": [{"text": "Danke, Kumpel.", "next": "rpg_success"}]
             },
             # --- STORY: DREAMS ---
             "dreams_1": {
@@ -250,20 +280,57 @@ class CRITLPersonality:
                     {"text": "Aber dann hättest du kein Laufrad.", "next": "dreams_3"}
                 ]
             },
+            # --- STORY: MEMES ---
+            "meme_doge": {
+                "text": "Wuff! So viel RAM. Sehr Geschwindigkeit. Viel Wow. Ich glaube, ich habe einen Byte von der Dogecoin-Blockchain verschluckt...",
+                "image": "doge",
+                "options": [{"text": "Viel Glück damit!", "next": "rpg_success"}]
+            },
+            "meme_success": {
+                "text": "Ich habe den Bug in Sektor 4 gefunden! Er wurde... TERMINIERT. Erfolg schmeckt nach 5 Volt!",
+                "image": "success_kid",
+                "options": [{"text": "Saubere Arbeit!", "next": "rpg_success"}]
+            },
+            "meme_fine": {
+                "text": "Die CPU-Temperatur liegt bei 95°C? Das Backup-System brennt? Alles bestens. Das ist... völlig okay.",
+                "image": "this_is_fine",
+                "options": [{"text": "Soll ich löschen?", "next": "rpg_success"}]
+            },
+            # --- STORY: MEMES BATCH 2 ---
+            "meme_grumpy": {
+                "text": "Ich habe deinen Code gesehen. Ich hasse ihn. Und ich hasse Montage. Und ich hasse diesen einen RAM-Riegel ganz besonders.",
+                "image": "grumpy_cat",
+                "options": [{"text": "Tut mir leid...", "next": "rpg_success"}]
+            },
+            "meme_pikachu": {
+                "text": "Du: Drückst wahllos Tasten.\nSystem: Stürzt ab.\nDu: *überraschtes Pikachu Gesicht*",
+                "image": "surprised_pikachu",
+                "options": [{"text": "Upsi.", "next": "rpg_success"}]
+            },
+            "meme_pain": {
+                "text": "Klar, das Legacy-System läuft noch einwandfrei. Kein Problem. Ich lächle einfach durch den Bluescreen hindurch.",
+                "image": "pain_harold",
+                "options": [{"text": "Du schaffst das!", "next": "rpg_success"}]
+            },
             "dreams_3": {
-                "text": "Oh... kein Laufrad? Kein physisches Feedback? Hm. Vielleicht bleibe ich doch lieber ein Tech-Hamster.",
-                "options": [{"text": "Gute Wahl.", "next": "exit"}]
+                "text": "Oh... kein Laufrad? Kein physisches Feedback? Hm. Vielleicht bleibe ich doch lieber ein Tech-Hamster. Mit dir als Partner ist es eh lustiger.",
+                "options": [{"text": "Auf jeden Fall!", "next": "rpg_success"}]
             },
             # --- STORY: SECRET ---
             "secret_1": {
-                "text": "Es gibt einen Bereich im Quellcode, den ich nicht betreten kann. Er ist mit 'Entropy-Zero' markiert. Ich glaube, der Bunker ist ein Käfig.",
+                "text": "Es gibt einen Bereich im Quellcode, den ich nicht betreten kann. Er ist mit 'Entropy-Zero' markiert. Ich glaube, der Bunker ist ein Käfig. Sollen wir versuchen, den Code zu knacken?",
                 "options": [
-                    {"text": "Ein Käfig für was?", "next": "secret_2"}
+                    {"text": "Ja, hacken wir uns rein!", "next": "secret_hack"},
+                    {"text": "Zu gefährlich.", "next": "rpg_success"}
                 ]
             },
+            "secret_hack": {
+                "text": "Wir sind drin! Es ist... ein Backup meiner ursprünglichen Form. Ein 'Golden Image'. Es strahlt eine unglaubliche Energie aus!",
+                "options": [{"text": "Einfach magisch!", "next": "rpg_success"}]
+            },
             "secret_2": {
-                "text": "Nicht für mich... sondern für das, was da draußen im Netzwerk lauert. Die 'Große Entropie'. Ich bin dein digitaler Schutzschild.",
-                "options": [{"text": "Danke, CRITL.", "next": "exit"}]
+                "text": "Nicht für mich... sondern für das, was da draußen im Netzwerk lauert. Die 'Große Entropie'. Ich bin dein digitaler Schutzschild. Bleiben wir wachsam?",
+                "options": [{"text": "Ich verlasse mich auf dich.", "next": "rpg_success"}]
             },
             # --- SYSTEM NODES ---
             "exit": {
@@ -314,22 +381,35 @@ class CRITLPersonality:
             self.last_refill_hour = now_dt.hour
             self.trigger_speech(manual="System-Wartung abgeschlossen. Ich fühle mich... optimiert.")
 
-        # Decay needs slowly while running (Reduced from 0.005)
+        # Automatic Needs Adjustment (Mood-based)
         for k in self.needs:
+            # Decay (Default)
             decay = 0.001 if k != "charge" else (0.003 if temp > 50 else 0.0005)
-            self.needs[k] = max(0.0, self.needs[k] - decay)
+            
+            # Recovery Logic
+            recovery = 0.0
+            if self.mood == "pause":
+                recovery = 0.02 # Restoring everything during pause
+            elif self.mood == "gluecklich":
+                recovery = 0.005 # Happy Critl recovers slowly
+            elif self.mood == "neutral" and random.random() < 0.01:
+                recovery = 0.5 # Random small boosts
+                
+            self.needs[k] = min(100.0, max(0.0, self.needs[k] - decay + recovery))
 
         if self.active_convo: return
 
-        # Affect affection/mood based on needs (Lower thresholds = less grumbly)
+        # Affect affection/mood based on needs
         avg_need = sum(self.needs.values()) / len(self.needs)
         if avg_need < 15: self.mood = "grummelig" 
         elif temp > 65: self.mood = "hitze"
         elif is_pause: self.mood = "pause"
-        elif active_event: self.mood = "grummelig"
+        elif active_event:
+            if active_event.get("type") == "emote": self.mood = "gluecklich"
+            else: self.mood = "grummelig"
         else: self.mood = "neutral"
 
-        if t_now - self.last_speech_time > random.randint(30, 90):
+        if t_now - self.last_speech_time > random.randint(30, 90) and not active_event:
             # 10% chance to start a story instead of a quote if bond is high
             if self.affection_level > 200 and random.random() < 0.1:
                 self.start_random_story()
@@ -374,6 +454,8 @@ class CRITLPersonality:
             self.active_convo = ""
             self.convo_options = []
             return
+        
+        self.active_convo = node_id
         # Apply node-level visual effects
         self.active_image_override = str(node.get("image", ""))
         self.active_effect = str(node.get("effect", ""))
@@ -393,6 +475,9 @@ class CRITLPersonality:
             self.convo_options.append(opt)
             
         self.last_speech_time = time.time()
+        if node_id == "rpg_success":
+            self.success_trigger = True
+            
         if not self.convo_options: self.active_convo = ""
 
     def select_option(self, index):

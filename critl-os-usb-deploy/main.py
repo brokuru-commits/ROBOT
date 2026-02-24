@@ -16,10 +16,16 @@ from update_system import UpdateSystem
 W, H = 640, 480
 FPS = 25
 
+# --- GLOBAL STATES ---
+success_flash_time = 0
+active_event = None
+ev_start = 0
+ev_dur = 0
+
 # FARBEN
 GREEN      = (55, 200, 55)
-GREEN_SOFT = (100, 230, 100)
-DIM_GREEN  = (10, 40, 10)
+GREEN_SOFT = (55, 200, 55, 100)
+DIM_GREEN  = (10, 40, 10, 150)
 BLUE       = (0, 190, 255)
 DIM_BLUE   = (0, 50, 100)
 RED        = (255, 50, 50)
@@ -166,15 +172,26 @@ EVENTS = [
     {"type":"matrix",   "min":15, "max":30},
     {"type":"sonar",    "min":15, "max":30},
     {"type":"bioscan",  "min":15, "max":30},
-    {"type":"hacking",  "min":999, "max":999}
+    {"type":"hacking",  "min":999, "max":999},
+    {"type":"doge",     "min":10, "max":20},
+    {"type":"success_kid","min":10, "max":20},
+    {"type":"this_is_fine","min":10, "max":20},
+    {"type":"grumpy_cat",  "min":10, "max":20},
+    {"type":"surprised_pikachu","min":10, "max":20},
+    {"type":"pain_harold", "min":10, "max":20}
 ]
 
 # ============================================================
 # INIT
 # ============================================================
 pygame.init()
-screen = pygame.display.set_mode((W,H))
-pygame.mouse.set_visible(True)
+# Mit pygame.FULLSCREEN | pygame.NOFRAME wird es wieder echtes Vollbild ohne Ränder
+screen = pygame.display.set_mode((W,H), pygame.FULLSCREEN | pygame.NOFRAME)
+
+# Hier entscheidest du über den Mauszeiger:
+# True  = Mauszeiger ist sichtbar (gut für Touch/Bedienung)
+# False = Mauszeiger ist unsichtbar (besserer Retro-Look)
+pygame.mouse.set_visible(False)
 clock = pygame.time.Clock()
 
 def load_font(size):
@@ -271,8 +288,8 @@ def draw_bar(x, y, w, h, prog, is_pause, remain, label, t_start, t_end):
     if fill_w > 0: pygame.draw.rect(screen, col, (x + 3, y + 3, fill_w, h - 6))
     full_text = f"{t_start}-{t_end} | {label}"
     if remain > 0: full_text += f" | NOCH {fmt(remain)}"
-    s_light = font_small.render(full_text, True, GREEN_SOFT)
-    s_dark  = font_small.render(full_text, True, BLACK)
+    s_light = font_body.render(full_text, True, GREEN_SOFT)
+    s_dark  = font_body.render(full_text, True, BLACK)
     tx = x + (w - s_light.get_width()) // 2
     ty = y + (h - s_light.get_height()) // 2
     screen.set_clip(pygame.Rect(x+3, y+3, fill_w, h-6))
@@ -422,20 +439,8 @@ def draw_status_icons(t):
     pygame.draw.polygon(s_b, bc, pts)
     screen.blit(s_b, (start_x + 70, y))
     
-    # SYSTEM ICON (Touchable Gear)
-    rect = pygame.Rect(start_x + 70, y, 34, 34)
-    mx, my = pygame.mouse.get_pos()
-    hover = rect.collidepoint(mx, my)
-    
-    s_sys = pygame.Surface((34,34), pygame.SRCALPHA)
-    pygame.draw.circle(s_sys, GREEN if not hover else GREEN_SOFT, (17, 17), 10, 2)
-    for i in range(8):
-        ang = i * (math.pi/4) + (t % 10) * 0.2
-        px = 17 + 13 * math.cos(ang)
-        py = 17 + 13 * math.sin(ang)
-        pygame.draw.circle(s_sys, GREEN if not hover else GREEN_SOFT, (int(px), int(py)), 3)
-    screen.blit(s_sys, (start_x + 70, y + 40))
-    return pygame.Rect(start_x + 70, y + 40, 34, 34)
+    # SYSTEM ICON removed
+    return None
 
 def draw_icon(icon_type, x, y):
     s = pygame.Surface((30, 30), pygame.SRCALPHA)
@@ -462,59 +467,42 @@ def draw_icon(icon_type, x, y):
         pygame.draw.rect(s, GREEN, (10, 18, 10, 8), 1) # Shutter
     screen.blit(s, (x, y))
 
-def draw_rpg_overlay():
-    # Show main background but dimmed for readability
-    screen.blit(bg, (0, 0))
-    tint((0, 20, 0), 180) # Darken the BG for the overlay
-    
-    pygame.draw.rect(screen, GREEN, (50, 50, W-100, H-100), 1)
-    
-    title = font_body.render("CRITL SYSTEMSTATUS", True, GREEN)
-    screen.blit(title, (W//2 - title.get_width()//2, 70))
-    
-    # SKILLS (Moved up)
-    sy = 110
-    header = font_small.render("KERN-ARCHITEKTUR SKILLS:", True, GREEN)
-    screen.blit(header, (100, sy))
-    
-    # Skill Mapping for German Display
-    skill_map = {"hacking": "HACKEN", "lore": "WISSEN", "bonding": "VERBINDUNG"}
-    
-    for i, (name, val) in enumerate(critl.skills.items()):
-        disp_name = skill_map.get(name, name.upper())
-        draw_icon(name, 60, sy + 33 + i * 40)
-        txt = font_v_small.render(f"{disp_name}:", True, GREEN_SOFT)
-        screen.blit(txt, (100, sy + 35 + i * 40))
-        # Reuse draw_bar for skill values
-        draw_bar(220, sy + 33 + i * 40, 300, 18, min(val/100.0, 1.0), False, 0, f"LVL {int(val)}", "", "")
+# draw_rpg_overlay removed
+def draw_rainbow_overlay():
+    global success_flash_time
+    t = time.time()
+    if t < success_flash_time:
+        dur = 2.0
+        rem = success_flash_time - t
+        alpha = int((rem / dur) * 150)
         
-    # INVENTORY (Moved up)
-    iy = 260
-    draw_icon("inventory", 60, iy - 5)
-    header = font_small.render("NEURALER CACHE (INVENTAR):", True, GREEN)
-    screen.blit(header, (100, iy))
-    if not critl.inventory:
-        screen.blit(font_v_small.render("[KEINE ASSETS GEFUNDEN]", True, GREEN_SOFT), (120, iy + 35))
-    else:
-        for i, item in enumerate(critl.inventory[:3]): # Cap to 3 for space
-            screen.blit(font_v_small.render(f">> {item}", True, GREEN_SOFT), (120, iy + 35 + i * 25))
+        # Rainbow color cycling
+        speed = 5.0
+        r = int((math.sin(t * speed) + 1) * 127)
+        g = int((math.sin(t * speed + 2) + 1) * 127)
+        b = int((math.sin(t * speed + 4) + 1) * 127)
+        
+        s = pygame.Surface((W, H))
+        s.set_alpha(alpha)
+        s.fill((r, g, b))
+        screen.blit(s, (0, 0))
 
-    footer = font_v_small.render("SCHLIE\u00dfEN", True, GREEN)
-    screen.blit(footer, (W//2 - footer.get_width()//2, H - 90))
-    
-    close_rect = pygame.Rect(W//2 - 80, H - 105, 160, 45)
-    pygame.draw.rect(screen, GREEN, close_rect, 1)
-    return close_rect
 
 def draw_choice_ui():
     if not critl.convo_options: critl.active_convo = ""
     if not critl.active_convo or not critl.convo_options: return []
     
     rects = []
-    # Position options on left side where it's clear
     start_y = H - 240
     for i, opt in enumerate(critl.convo_options):
-        rect = pygame.Rect(40, start_y + i * 50, 240, 40)
+        # Render text first to get size
+        txt = font_v_small.render(opt["text"], True, GREEN)
+        tw, th = txt.get_width(), txt.get_height()
+        
+        # Calculate dynamic rect
+        rw = max(240, tw + 20)
+        rect = pygame.Rect(40, start_y + i * 50, rw, 40)
+        
         mx, my = pygame.mouse.get_pos()
         is_hover = rect.collidepoint(mx, my)
         
@@ -522,7 +510,9 @@ def draw_choice_ui():
         pygame.draw.rect(screen, DIM_GREEN, rect)
         pygame.draw.rect(screen, GREEN if is_hover else GREEN_SOFT, rect, 2)
         
-        txt = font_v_small.render(opt["text"], True, GREEN if is_hover else GREEN_SOFT)
+        # Draw text centered vertically
+        txt_color = GREEN if is_hover else GREEN_SOFT
+        txt = font_v_small.render(opt["text"], True, txt_color)
         screen.blit(txt, (rect.x + 10, rect.y + 10))
         rects.append(rect)
     return rects
@@ -555,13 +545,15 @@ if __name__ == "__main__":
         pygame.quit()
         sys.exit()
     
-    active_event, ev_start, ev_dur = None, 0, 0
+    # Clear event queue to avoid "ghost" inputs from the boot wait
+    pygame.event.clear()
+    
+    # active_event, ev_start, ev_dur = None, 0, 0 # These are now global
     next_event = time.time() + 120
     last_update_check = time.time() 
 
     active_quote, q_until, next_quote = "", 0, time.time()+20
     active_face, last_face_change = "INIT", 0 
-    show_rpg = False
 
     # State for complex effects
     matrix_drops = []
@@ -641,31 +633,38 @@ if __name__ == "__main__":
                 sys.exit()
             
             if e.type == pygame.KEYDOWN:
-                if e.key in [pygame.K_k, pygame.K_r]:
-                    show_rpg = not show_rpg
+                # --- DEBUG MODE: TRIGGER EVENTS ---
+                debug_map = {
+                    pygame.K_F1: "rads", pygame.K_F2: "critical", pygame.K_F3: "vats",
+                    pygame.K_F4: "error", pygame.K_F5: "chem", pygame.K_F6: "vision",
+                    pygame.K_F7: "censored", pygame.K_F8: "emote", pygame.K_F9: "matrix",
+                    pygame.K_F10: "grumpy_cat", pygame.K_F11: "surprised_pikachu", pygame.K_F12: "pain_harold"
+                }
+                if e.key in debug_map:
+                    ev_type = debug_map[e.key]
+                    active_event = next((ev for ev in EVENTS if ev["type"] == ev_type), {"type": ev_type, "min": 10, "max": 20})
+                    ev_start = time.time()
+                    ev_dur = active_event.get("max", 15)
+                    # critl.trigger_event_speech(ev_type)
+                    print(f"DEBUG: Triggered event {ev_type}")
+                
+                if e.key == pygame.K_TAB:
+                    critl.activate_node("start_node")
+                    print("DEBUG: Manually triggered story start")
     
             if e.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
                 
                 # --- TOUCH HANDLING FOR RPG MENU ---
-                if show_rpg:
-                    c_rect = draw_rpg_overlay() # Get the rect (though it's drawn later, we can check it)
-                    if c_rect.collidepoint(mx, my):
-                        show_rpg = False
-                        continue # Don't pass click through
-                else:
-                    sys_rect = draw_status_icons(time.time())
-                    if sys_rect.collidepoint(mx, my):
-                        show_rpg = True
-                        continue
+                pass
     
                 # --- TAMAGOTCHI FOOTER CLICK ---
                 needs_btns = draw_needs_footer()
                 for rect, action in needs_btns:
                     if rect.collidepoint(mx, my):
                         critl.care_action(action)
-                        need_flashes[action] = t_now + 0.3
-                        critl_flash = t_now + 0.5
+                        # need_flashes[action] = t_now + 0.3
+                        # critl_flash = t_now + 0.5
                         continue 
     
                 # --- STORY CHOICES CLICK ---
@@ -677,25 +676,11 @@ if __name__ == "__main__":
                 # --- CRITL CLICK ---
                 if pygame.Rect(W - 360, 40, 350, 350).collidepoint(mx, my):
                      if not active_event:
-                        critl_flash = t_now + 0.3
-                        # Rare chance for hacking or a story starting
-                        r_val = random.random()
-                        if r_val > 0.95:
-                            active_event = {"type":"hacking", "min":999, "max":999}
-                            ev_start = t_now
-                            ev_dur = 999
-                            hacking_game.reset_game()
-                            critl.trigger_speech(manual="ACHTUNG! Sicherheitslücke im Klassenzimmer-Sektor!")
-                        elif r_val > 0.4: # Increased from 0.4 diff to 0.6 total -> 60% chance for story on click
-                            critl.start_random_story()
-                        else:
-                            critl.trigger_speech(manual=random.choice([
-                                 "Pfoten weg! Ich arbeite!",
-                                 "0x07 (System Beep)... hör auf zu klicken!",
-                                 "Simulation: Ungeduld des Users erkannt.",
-                                 "Ja? Ich bin beschäftigt.",
-                                 "Klick lieber auf den Lehrplan."
-                            ]))
+                        # TRIGGER RANDOM EVENT DIRECTLY
+                        active_event = random.choice(EVENTS)
+                        ev_start, ev_dur = t_now, random.randint(active_event["min"], active_event["max"])
+                        # critl.trigger_event_speech(active_event["type"])
+                        print(f"DEBUG: Manually triggered event {active_event['type']}")
                      else:
                          critl.trigger_speech(manual="Siehst du nicht, dass hier gerade Chaos herrscht?!")
                 
@@ -715,6 +700,12 @@ if __name__ == "__main__":
         # UPDATE CRITL
         temp_pi, _ = get_pi_stats()
         critl.update(t_now, temp_pi, is_p, active_event)
+        
+        # Poll Success Trigger
+        if critl.success_trigger:
+            success_flash_time = time.time() + 2.0
+            critl.success_trigger = False
+            print("RAINBOW FLASH TRIGGERED!")
     
         if active_event:
             # Default duration if for some reason it slipped through
@@ -731,6 +722,12 @@ if __name__ == "__main__":
                 pygame.draw.line(screen, (100, 200, 255), (0, sy), (W, sy), 3)
                 pygame.draw.line(screen, (100, 200, 255), (0, sy-2), (W, sy-2), 1)
             
+            elif et in ["doge", "success_kid", "this_is_fine", "grumpy_cat", "surprised_pikachu", "pain_harold"]:
+                img = get_story_asset(et)
+                if img:
+                    ix = (W - img.get_width()) // 2
+                    iy = (H - img.get_height()) // 2
+                    screen.blit(img, (ix, iy))
             elif et == "glitch_green":
                 for _ in range(600):
                     screen.set_at((random.randrange(W), random.randrange(H)), (100, 255, 100))
@@ -1002,6 +999,19 @@ if __name__ == "__main__":
                 screen.blit(font_small.render(f"POS: {scan_y}", True, (0, 255, 255)), (W-180, 80))
                 if abs(scan_y - H//2) < 50:
                      screen.blit(font_body.render("SUBJECT DETECTED", True, WARNING), (W//2-100, H//2))
+            
+            elif et == "emote":
+                # Heart/Sparkle particles around CRITL
+                cx, cy = W - 185, 215 # Center of CRITL
+                for i in range(10):
+                    t_off = t_now * 2 + i * 0.5
+                    px = cx + math.cos(t_off) * (40 + 20 * math.sin(t_now * 3))
+                    py = cy + math.sin(t_off) * (40 + 20 * math.cos(t_now * 3))
+                    size = int(5 + 3 * math.sin(t_now * 5 + i))
+                    # Draw a small heart or diamond
+                    pygame.draw.circle(screen, ORANGE, (int(px), int(py)), size)
+                    pygame.draw.circle(screen, RED, (int(px), int(py)), size // 2)
+
             if t_now - ev_start >= ev_dur: 
                 active_event = None
                 matrix_drops = [] # Reset state
@@ -1022,6 +1032,7 @@ if __name__ == "__main__":
             wd = {"Monday":"MONTAG","Tuesday":"DIENSTAG","Wednesday":"MITTWOCH","Thursday":"DONNERSTAG","Friday":"FREITAG","Saturday":"SAMSTAG","Sunday":"SONNTAG"}
             screen.blit(font_body.render(f"{wd.get(now.strftime('%A'),'TAG')}, {now.strftime('%d.%m.')}", True, GREEN_SOFT), (35, 120))
             
+    
             # SMILIE AUS DATEI
             if t_now - last_face_change > 5:
                 if CRITL_FACES:
@@ -1047,58 +1058,56 @@ if __name__ == "__main__":
             # TRIGGER EVENT SPEECH
             critl.trigger_event_speech(active_event["type"])
             
-        # --- DRAW CRITL ---
-        img_idx = critl.get_image_index(is_p)
-        critl_img = critl_imgs.get(img_idx)
-        
-        # Story Image Override
-        if critl.active_image_override:
-            # Check if it's a numeric index (for mood overrides) or a string key (for story assets)
-            try:
-                ov_idx = int(critl.active_image_override)
-                override_img = critl_imgs.get(ov_idx)
-            except (ValueError, TypeError):
-                override_img = get_story_asset(critl.active_image_override)
+        if not active_event:
+            # --- DRAW CRITL ---
+            img_idx = critl.get_image_index(is_p)
+            critl_img = critl_imgs.get(img_idx)
             
-            if override_img:
-                # If it's a story asset, we might want to center it or show it prominently
-                screen.blit(override_img, (W - 360, 40))
+            # Story Image Override
+            if critl.active_image_override:
+                # Check if it's a numeric index (for mood overrides) or a string key (for story assets)
+                try:
+                    ov_idx = int(critl.active_image_override)
+                    override_img = critl_imgs.get(ov_idx)
+                except (ValueError, TypeError):
+                    override_img = get_story_asset(critl.active_image_override)
+                
+                if override_img:
+                    screen.blit(override_img, (W - 360, 40))
+                else:
+                    if critl_img: screen.blit(critl_img, (W - 360, 40))
             else:
-                # Fallback to standard mood image
-                if critl_img: screen.blit(critl_img, (W - 360, 40))
+                if critl_img:
+                    screen.blit(critl_img, (W - 360, 40))
+            
+            # CRITL Flash Effect
+            if t_now < critl_flash:
+                s_flash = pygame.Surface((350, 350), pygame.SRCALPHA)
+                s_flash.fill((255, 150, 0, 80)) # Light orange tint
+                screen.blit(s_flash, (W - 360, 40), special_flags=pygame.BLEND_RGBA_ADD)
+
+            # --- DRAW NEEDS FOOTER ---
+            draw_needs_footer()
+        
+            # --- DRAW SPEECH ---
+            speech = critl.get_current_speech()
+            if speech:
+                draw_speech_bubble(speech, (W - 300, 150))
+            
         else:
-            if critl_img:
-                screen.blit(critl_img, (W - 360, 40))
-        
-        # CRITL Flash Effect
-        if t_now < critl_flash:
-            s_flash = pygame.Surface((350, 350), pygame.SRCALPHA)
-            s_flash.fill((255, 150, 0, 80)) # Light orange tint
-            screen.blit(s_flash, (W - 360, 40), special_flags=pygame.BLEND_RGBA_ADD)
-        
-        # Story Effects
-        if critl.active_effect == "glitch":
-            for _ in range(50):
-                gx, gy = random.randint(0, W), random.randint(0, H)
-                gw, gh = random.randint(10, 100), random.randint(2, 5)
-                pygame.draw.rect(screen, GREEN, (gx, gy, gw, gh))
-        elif critl.active_effect == "red_alert":
-            pulse = (math.sin(time.time() * 5) + 1) / 2
-            tint(RED, int(20 + 30 * pulse))
-            
-        # --- DRAW NEEDS FOOTER ---
-        draw_needs_footer()
-        
-        # --- DRAW SPEECH ---
-        speech = critl.get_current_speech()
-        if speech:
-            draw_speech_bubble(speech, (W - 300, 150))
-            
+            # --- TINT THE MONITOR DURING EVENTS ---
+            et = active_event.get("type")
+            if et == "critical" or et == "red_alert": tint(RED, 40)
+            elif "glitch" in str(et): tint(BLUE, 30)
+            elif et == "rads": tint((200, 200, 0), 40)
+            elif et == "matrix": tint(GREEN, 20)
+            else: tint(GREEN, 15)
+
         # --- DRAW CHOICES ---
         draw_choice_ui()
+        
+        draw_rainbow_overlay()
     
-        if show_rpg:
-            draw_rpg_overlay()
             
         # --- GLOBAL SCANLINES (Drawn over EVERYTHING for Fallout vibe) ---
         sl = pygame.Surface((W, H), pygame.SRCALPHA)
