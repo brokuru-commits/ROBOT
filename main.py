@@ -288,8 +288,8 @@ def draw_bar(x, y, w, h, prog, is_pause, remain, label, t_start, t_end):
     if fill_w > 0: pygame.draw.rect(screen, col, (x + 3, y + 3, fill_w, h - 6))
     full_text = f"{t_start}-{t_end} | {label}"
     if remain > 0: full_text += f" | NOCH {fmt(remain)}"
-    s_light = font_small.render(full_text, True, GREEN_SOFT)
-    s_dark  = font_small.render(full_text, True, BLACK)
+    s_light = font_body.render(full_text, True, GREEN_SOFT)
+    s_dark  = font_body.render(full_text, True, BLACK)
     tx = x + (w - s_light.get_width()) // 2
     ty = y + (h - s_light.get_height()) // 2
     screen.set_clip(pygame.Rect(x+3, y+3, fill_w, h-6))
@@ -1058,7 +1058,6 @@ if __name__ == "__main__":
             # TRIGGER EVENT SPEECH
             critl.trigger_event_speech(active_event["type"])
             
-        if not active_event:
             # --- DRAW CRITL ---
             img_idx = critl.get_image_index(is_p)
             critl_img = critl_imgs.get(img_idx)
@@ -1073,10 +1072,8 @@ if __name__ == "__main__":
                     override_img = get_story_asset(critl.active_image_override)
                 
                 if override_img:
-                    # If it's a story asset, we might want to center it or show it prominently
                     screen.blit(override_img, (W - 360, 40))
                 else:
-                    # Fallback to standard mood image
                     if critl_img: screen.blit(critl_img, (W - 360, 40))
             else:
                 if critl_img:
@@ -1087,27 +1084,24 @@ if __name__ == "__main__":
                 s_flash = pygame.Surface((350, 350), pygame.SRCALPHA)
                 s_flash.fill((255, 150, 0, 80)) # Light orange tint
                 screen.blit(s_flash, (W - 360, 40), special_flags=pygame.BLEND_RGBA_ADD)
-        
-        # Story Effects
-        if critl.active_effect == "glitch":
-            for _ in range(50):
-                gx, gy = random.randint(0, W), random.randint(0, H)
-                gw, gh = random.randint(10, 100), random.randint(2, 5)
-                pygame.draw.rect(screen, GREEN, (gx, gy, gw, gh))
-        elif critl.active_effect == "red_alert":
-            pulse = (math.sin(time.time() * 5) + 1) / 2
-            tint(RED, int(20 + 30 * pulse))
-            
-        if not active_event:
+
             # --- DRAW NEEDS FOOTER ---
             draw_needs_footer()
         
-        if not active_event:
             # --- DRAW SPEECH ---
             speech = critl.get_current_speech()
             if speech:
                 draw_speech_bubble(speech, (W - 300, 150))
             
+        else:
+            # --- TINT THE MONITOR DURING EVENTS ---
+            et = active_event.get("type")
+            if et == "critical" or et == "red_alert": tint(RED, 40)
+            elif "glitch" in str(et): tint(BLUE, 30)
+            elif et == "rads": tint((200, 200, 0), 40)
+            elif et == "matrix": tint(GREEN, 20)
+            else: tint(GREEN, 15)
+
         # --- DRAW CHOICES ---
         draw_choice_ui()
         
