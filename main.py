@@ -22,6 +22,19 @@ active_event = None
 ev_start = 0
 ev_dur = 0
 
+# --- TIME CONFIG (Adjust for Lore or Hardware Drift) ---
+TIME_OFFSET_H = 0    # Hours
+TIME_OFFSET_M = 0    # Minutes
+LORE_YEAR_OFFSET = 51 # 2026 -> 2077 (Fallout Lore)
+
+from datetime import timedelta
+def get_adjusted_time():
+    """Returns the current time with configured offsets applied"""
+    now = datetime.now()
+    # Apply time offsets
+    adjusted = now + timedelta(hours=TIME_OFFSET_H, minutes=TIME_OFFSET_M)
+    return adjusted
+
 # FARBEN
 GREEN      = (55, 200, 55)
 GREEN_SOFT = (55, 200, 55, 100)
@@ -361,6 +374,7 @@ def tint(color, alpha):
     screen.blit(s, (0, 0))
 
 def draw_needs_footer():
+    if globals().get("active_event"): return []
     # Full width at THE VERY BOTTOM
     bar_y = H - 45
     bar_h = 35
@@ -567,7 +581,7 @@ if __name__ == "__main__":
         # ----------------------------------------------------
         # SCHLAFMODUS (ABENDS & WOCHENENDE)
         # ----------------------------------------------------
-        now = datetime.now()
+        now = get_adjusted_time()
         ist_wochenende = now.weekday() >= 5  # 5 = Samstag, 6 = Sonntag
         ist_feierabend = now.hour >= 17 or now.hour < 7
         
@@ -609,7 +623,8 @@ if __name__ == "__main__":
             
             # Status Info
             status_grund = "WOCHENENDE" if ist_wochenende else "FEIERABEND"
-            status_text = f"SLEEP MODE | {status_grund} | {now.strftime('%H:%M')}"
+            display_year = now.year + LORE_YEAR_OFFSET
+            status_text = f"SLEEP MODE | {status_grund} | {now.strftime('%d.%m.')}{display_year} {now.strftime('%H:%M')}"
             status_surf = font_small.render(status_text, True, sleep_color)
             screen.blit(status_surf, ((W - status_surf.get_width()) // 2, zzz_y + 80))
             
@@ -723,11 +738,7 @@ if __name__ == "__main__":
                 pygame.draw.line(screen, (100, 200, 255), (0, sy-2), (W, sy-2), 1)
             
             elif et in ["doge", "success_kid", "this_is_fine", "grumpy_cat", "surprised_pikachu", "pain_harold"]:
-                img = get_story_asset(et)
-                if img:
-                    ix = (W - img.get_width()) // 2
-                    iy = (H - img.get_height()) // 2
-                    screen.blit(img, (ix, iy))
+                pass # Images hidden during events as requested
             elif et == "glitch_green":
                 for _ in range(600):
                     screen.set_at((random.randrange(W), random.randrange(H)), (100, 255, 100))
@@ -870,9 +881,7 @@ if __name__ == "__main__":
                 off_y = int(math.cos(t_now * 5) * 10)
                 off_y = int(math.cos(t_now * 5) * 10)
                 if base_img: 
-                    ghost = base_img.copy()
-                    ghost.set_alpha(100)
-                    screen.blit(ghost, (W - 360 + off_x, 40 + off_y))
+                    pass # Ghost images hidden during events
     
             elif et == "vision":
                 vp = int(130 + 30 * math.sin(t_now * 1.5))
@@ -915,13 +924,6 @@ if __name__ == "__main__":
                     txt2 = font_small.render("SECURITY CLEARANCE REQUIRED", True, RED)
                     screen.blit(txt1, (W//2 - txt1.get_width()//2, H//2 - 20))
                     screen.blit(txt2, (W//2 - txt2.get_width()//2, H//2 + 30))
-                    bar_x, bar_y = W//2 - 150, H//2 + 70
-                    pygame.draw.rect(screen, RED, (bar_x, bar_y, 300, 20), 1)
-                    prog_w = int((t_now % 1) * 300)
-                    pygame.draw.rect(screen, RED, (bar_x+2, bar_y+2, prog_w, 16))
-    
-                    scaled_img = pygame.transform.scale(base_img, (300, 300))
-                    screen.blit(scaled_img, (W//2 - 150, H//2 - 150))
     
             elif et == "matrix":
                 # Init drops if needed
@@ -1030,7 +1032,8 @@ if __name__ == "__main__":
             
             draw_status_icons(t_now)
             wd = {"Monday":"MONTAG","Tuesday":"DIENSTAG","Wednesday":"MITTWOCH","Thursday":"DONNERSTAG","Friday":"FREITAG","Saturday":"SAMSTAG","Sunday":"SONNTAG"}
-            screen.blit(font_body.render(f"{wd.get(now.strftime('%A'),'TAG')}, {now.strftime('%d.%m.')}", True, GREEN_SOFT), (35, 120))
+            display_year = now.year + LORE_YEAR_OFFSET
+            screen.blit(font_body.render(f"{wd.get(now.strftime('%A'),'TAG')}, {now.strftime('%d.%m.')}{display_year}", True, GREEN_SOFT), (35, 120))
             
     
             # SMILIE AUS DATEI

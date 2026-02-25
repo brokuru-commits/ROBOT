@@ -2,7 +2,11 @@ import random
 import time
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+
+# Consistency with main.py
+TIME_OFFSET_H = 0
+TIME_OFFSET_M = 0
 
 class CRITLPersonality:
     def __init__(self, memory_path="assets/critl_memory.json"):
@@ -375,7 +379,7 @@ class CRITLPersonality:
 
     def update(self, t_now, temp, is_pause, active_event):
         # Auto-Refill Logic (Twice a day: 10:00 and 15:00)
-        now_dt = datetime.now()
+        now_dt = datetime.now() + timedelta(hours=TIME_OFFSET_H, minutes=TIME_OFFSET_M)
         if now_dt.hour in [10, 15] and now_dt.hour != self.last_refill_hour:
             for k in self.needs: self.needs[k] = 100.0
             self.last_refill_hour = now_dt.hour
