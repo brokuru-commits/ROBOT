@@ -5,8 +5,8 @@
 set -e  # Bei Fehler abbrechen
 
 echo "================================================"
-echo "  CRITL OS - Installation auf Raspberry Pi"
-echo "  HEUM-TEC CRITL OS VERSION 2.1.0"
+echo "  ROBOT OS - Installation auf Raspberry Pi"
+echo "  ROBOT OS VERSION 2.1.0"
 echo "================================================"
 echo ""
 
@@ -16,8 +16,8 @@ echo "USB-Stick gefunden: $SCRIPT_DIR"
 echo ""
 
 # Frage nach Zielverzeichnis
-read -p "CRITL OS Verzeichnis auf dem Pi [/home/pi/critl-os]: " TARGET_DIR
-TARGET_DIR=${TARGET_DIR:-/home/pi/critl-os}
+read -p "ROBOT OS Verzeichnis auf dem Pi [/home/bot/robot]: " TARGET_DIR
+TARGET_DIR=${TARGET_DIR:-/home/bot/robot}
 
 echo ""
 echo "Zielverzeichnis: $TARGET_DIR"
@@ -52,19 +52,48 @@ echo "[3/3] Setze Berechtigungen..."
 chmod +x "$TARGET_DIR"/*.py 2>/dev/null || true
 
 echo ""
+echo "[4/4] Aktualisiere Autostart-Konfiguration..."
+# Suche nach alten Pfaden in Autostart-Dateien
+OLD_PATHS=("/home/pi/critl-os" "/home/pi/HEUM-tec" "/home/martin/Dokumente/prog/HEUM-tec")
+AUTOSTART_FILES=(
+    "$HOME/.config/lxsession/LXDE-pi/autostart"
+    "/etc/xdg/lxsession/LXDE-pi/autostart"
+    "/etc/rc.local"
+)
+
+for FILE in "${AUTOSTART_FILES[@]}"; do
+    if [ -f "$FILE" ]; then
+        echo "Prüfe $FILE..."
+        for OLD_PATH in "${OLD_PATHS[@]}"; do
+            if grep -q "$OLD_PATH" "$FILE"; then
+                echo "  -> Alten Pfad $OLD_PATH in $FILE gefunden. Aktualisiere auf $TARGET_DIR..."
+                sudo sed -i "s|$OLD_PATH|$TARGET_DIR|g" "$FILE"
+            fi
+        done
+        # Falls main.py direkt ohne Pfad oder mit anderem Pfad aufgerufen wird
+        if grep -q "main.py" "$FILE" && ! grep -q "$TARGET_DIR/main.py" "$FILE"; then
+            echo "  -> Unvollständigen Pfad für main.py in $FILE gefunden. Korrigiere..."
+            # Ersetze die gesamte Zeile, die main.py enthält, durch den korrekten Aufruf
+            sudo sed -i "s|.*main.py.*|python3 $TARGET_DIR/main.py \&|g" "$FILE"
+        fi
+    fi
+done
+
+echo ""
 echo "================================================"
-echo "  ✓ Installation abgeschlossen!"
+echo "  ✓ Installation und Pfad-Update abgeschlossen!"
 echo "================================================"
 echo ""
-echo "CRITL OS wurde installiert nach: $TARGET_DIR"
+echo "ROBOT OS wurde installiert nach: $TARGET_DIR"
 echo ""
-echo "Neue Features:"
-echo "  ✓ HEUM-TEC Boot-Screen beim Start"
-echo "  ✓ Automatisches Update-System"
-echo "  ✓ Optimierter Schlafmodus (17:00-7:00 & Wochenende)"
+echo "WICHTIG FÜR BOT-BENUTZER:"
+echo "Da dein Benutzername 'bot' ist, wurde der Autostart"
+echo "automatisch auf $TARGET_DIR angepasst."
 echo ""
-echo "Da main.py automatisch beim Start lädt:"
-echo "  → Einfach Pi neu starten: sudo reboot"
+echo "Falls es beim Starten immer noch Probleme gibt:"
+echo "Prüfe die Datei: ~/.config/lxsession/LXDE-pi/autostart"
+echo ""
+echo "Neustart empfohlen: sudo reboot"
 echo ""
 echo "Oder manuell testen:"
 echo "  → cd $TARGET_DIR && python3 main.py"

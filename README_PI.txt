@@ -1,6 +1,6 @@
 ╔════════════════════════════════════════════════════════════╗
-║  CRITL OS - USB Installation für Raspberry Pi             ║
-║  HEUM-TEC CRITL OS VERSION 2.1.0                          ║
+║  ROBOT OS - USB Installation für Raspberry Pi             ║
+║  ROBOT OS VERSION 2.1.0                          ║
 ╚════════════════════════════════════════════════════════════╝
 
 INSTALLATION - NUR 2 SCHRITTE:
@@ -10,7 +10,7 @@ INSTALLATION - NUR 2 SCHRITTE:
 
 2. Terminal öffnen und ausführen:
    
-   cd /media/pi/USB-NAME/critl-os-usb-deploy
+   cd /media/pi/USB-NAME/robot-usb-deploy
    bash INSTALL_PI.sh
 
    (Ersetze USB-NAME mit dem Namen deines USB-Sticks)
@@ -27,7 +27,7 @@ ALTERNATIVE (falls USB anders gemountet):
    ls /media/pi/
    
 2. Zum USB-Ordner wechseln:
-   cd /media/pi/DEIN-USB/critl-os-usb-deploy
+   cd /media/pi/DEIN-USB/robot-usb-deploy
    
 3. Script ausführen:
    bash INSTALL_PI.sh
@@ -42,13 +42,13 @@ WAS PASSIERT BEIM INSTALL:
 ✓ Berechtigungen werden gesetzt
 
 Das Script fragt dich nach dem Zielverzeichnis
-(Standard: /home/pi/critl-os)
+(Standard: /home/bot/robot)
 
 
 NEUE FEATURES:
 ═══════════════════════════════════════════════════════════
 
-✓ HEUM-TEC Boot-Screen beim Start
+✓ ROBOT Boot-Screen beim Start
 ✓ Automatisches Update-System
 ✓ Optimierter Schlafmodus (17:00-7:00 & Wochenende)
 
@@ -58,6 +58,6 @@ PROBLEME?
 
 Falls das Script nicht läuft:
 1. Berechtigungen prüfen: chmod +x INSTALL_PI.sh
-2. Manuell kopieren: cp -r * /home/pi/critl-os/
+2. Manuell kopieren: cp -r * /home/bot/robot/
 
 Bei Fragen: Einfach melden!

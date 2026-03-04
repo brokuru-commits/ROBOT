@@ -5,7 +5,7 @@
 # ============================================================
 
 # Navigate to the project directory
-PROJECT_DIR="/home/martin/Dokumente/prog/HEUM-tec"
+PROJECT_DIR="/home/bot/robot"
 
 echo "------------------------------------------"
 echo "CRITL OS: Starte manuelles Update..."

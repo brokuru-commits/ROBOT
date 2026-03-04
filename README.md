@@ -1,16 +1,16 @@
-# HEUM-tec CRITL OS
+# ROBOT OS
 
-CRITL OS ist ein interaktives System für den Raspberry Pi, entwickelt von HEUM-TEC. Es bietet eine einzigartige Mischung aus KI-Persönlichkeit, Storytelling und Mini-Spielen.
+ROBOT OS ist ein interaktives System für den Raspberry Pi. Es bietet eine einzigartige Mischung aus KI-Persönlichkeit, Storytelling und Mini-Spielen.
 
 ## Features
 - **Interaktive KI**: CRITL reagiert auf deine Eingaben und Bedürfnisse.
 - **Story-System**: Schalte Geschichten und Meme-Events frei.
 - **Hacking-Simulator**: Spiele Mini-Games im Terminal-Look.
-- **Boot-Screen**: Authentisches HEUM-TEC Boot-Erlebnis.
+- **Boot-Screen**: Authentisches ROBOT Boot-Erlebnis.
 - **Update-System**: Automatische Aktualisierungen über GitHub.
 
 ## Installation auf dem Raspberry Pi
-Um CRITL OS auf deinem Pi zu installieren:
+Um ROBOT OS auf deinem Pi zu installieren:
 
 1. Lade dieses Repository herunter oder klone es.
 2. Kopiere den Inhalt auf einen USB-Stick oder direkt auf den Pi.
@@ -18,7 +18,7 @@ Um CRITL OS auf deinem Pi zu installieren:
    ```bash
    bash INSTALL_PI.sh
    ```
-4. Folge den Anweisungen auf dem Bildschirm. Standardmäßig wird alles nach `/home/pi/critl-os` installiert.
+4. Folge den Anweisungen auf dem Bildschirm. Standardmäßig wird alles nach `/home/bot/robot` installiert.
 
 Weitere Informationen zur Installation findest du in der `README_PI.txt`.
 

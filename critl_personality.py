@@ -385,23 +385,39 @@ class CRITLPersonality:
             self.last_refill_hour = now_dt.hour
             self.trigger_speech(manual="System-Wartung abgeschlossen. Ich fühle mich... optimiert.")
 
-        # Automatic Needs Adjustment (Mood-based)
+        # --- AUTOMATED NEEDS ADJUSTMENT ---
         for k in self.needs:
-            # Decay (Default)
+            # Base Decay
             decay = 0.001 if k != "charge" else (0.003 if temp > 50 else 0.0005)
             
-            # Recovery Logic
+            # Automated Recovery logic (CRITL takes care of himself)
+            # He recovers faster when he's happy or neutral.
             recovery = 0.0
-            if self.mood == "pause":
-                recovery = 0.02 # Restoring everything during pause
-            elif self.mood == "gluecklich":
-                recovery = 0.005 # Happy Critl recovers slowly
-            elif self.mood == "neutral" and random.random() < 0.01:
-                recovery = 0.5 # Random small boosts
-                
+            if self.mood == "gluecklich": recovery = 0.008
+            elif self.mood == "neutral": recovery = 0.004
+            elif self.mood == "pause": recovery = 0.02
+            
+            # Random "self-care" boosts
+            if random.random() < 0.005: recovery += 2.0
+
             self.needs[k] = min(100.0, max(0.0, self.needs[k] - decay + recovery))
 
-        if self.active_convo: return
+        if self.active_convo:
+            # Auto-advance story nodes after duration
+            if t_now - self.last_speech_time > self.dialogue_duration:
+                node = self.stories.get(self.active_convo)
+                if node and node.get("options"):
+                    # Choose first option or a random one to auto-advance
+                    next_node = node["options"][0].get("next", "exit")
+                    if next_node == "exit":
+                        self.active_convo = ""
+                        self.active_image_override = ""
+                    else:
+                        self.activate_node(next_node)
+                else:
+                    self.active_convo = ""
+                    self.active_image_override = ""
+            return
 
         # Affect affection/mood based on needs
         avg_need = sum(self.needs.values()) / len(self.needs)
@@ -414,8 +430,8 @@ class CRITLPersonality:
         else: self.mood = "neutral"
 
         if t_now - self.last_speech_time > random.randint(30, 90) and not active_event:
-            # 10% chance to start a story instead of a quote if bond is high
-            if self.affection_level > 200 and random.random() < 0.1:
+            # Chance to start a story
+            if random.random() < 0.15: # Slightly higher chance for narrative events
                 self.start_random_story()
             else:
                 self.trigger_speech(temp=temp)
@@ -432,7 +448,8 @@ class CRITLPersonality:
             self.current_dialogue = random.choice(self.quotes[mood])
         else:
             pool = self.quotes.get(self.mood)
-            if not isinstance(pool, list): pool = self.quotes["neutral"]
+            if not isinstance(pool, list): 
+                pool = self.quotes.get("neutral", ["System stabil."])
             msg = random.choice(pool)
             if "{temp}" in msg: msg = msg.format(temp=f"{temp:.1f}")
             self.current_dialogue = msg
@@ -447,49 +464,31 @@ class CRITLPersonality:
         else:
             self.current_dialogue = "System-Anomalie detektiert."
         self.last_speech_time = time.time()
-        self.speech_style = "event" # Special style for bottom-right
+        self.speech_style = "event"
+        self.dialogue_duration = 10.0 # Longer for events
 
     def start_random_story(self):
-        self.activate_node("start_node")
+        # Choose a random story path instead of a static start node
+        story_starts = ["origin_1", "peanut_1", "dreams_1", "secret_1", "rpg_start"]
+        self.activate_node(random.choice(story_starts))
 
     def activate_node(self, node_id):
         node = self.stories.get(node_id)
         if not node:
             self.active_convo = ""
-            self.convo_options = []
             return
         
         self.active_convo = node_id
-        # Apply node-level visual effects
+        self.current_dialogue = node.get("text", "")
         self.active_image_override = str(node.get("image", ""))
         self.active_effect = str(node.get("effect", ""))
         
-        # Filter options by requirements
-        raw_options = node.get("options", [])
-        if not isinstance(raw_options, list): raw_options = []
-        self.convo_options = []
-        for opt in raw_options:
-            if not isinstance(opt, dict): continue
-            req = opt.get("requirement")
-            if isinstance(req, dict):
-                skill_name = req.get("skill")
-                skill_val = req.get("min", 0)
-                if skill_name and self.skills.get(skill_name, 0) < skill_val:
-                    continue # Skip option if requirement not met
-            self.convo_options.append(opt)
-            
-        self.last_speech_time = time.time()
-        if node_id == "rpg_success":
-            self.success_trigger = True
-            
-        if not self.convo_options: self.active_convo = ""
+        # Rewards are applied automatically when the node starts
+        reward = node.get("reward") # Note: moved reward handling to node activation
+        if not reward and node.get("options"):
+             # If there's an option, check its reward too for compatibility
+             reward = node["options"][0].get("reward")
 
-    def select_option(self, index):
-        if not self.active_convo or index >= len(self.convo_options): return
-        opt = self.convo_options[index]
-        
-        # Apply Rewards
-        reward = opt.get("reward")
         if reward:
             r_type = reward.get("type")
             if r_type == "skill":
@@ -499,44 +498,23 @@ class CRITLPersonality:
                 item_name = reward.get("item")
                 if item_name and item_name not in self.inventory:
                     self.inventory.append(item_name)
-                # Affection Reward (Optional)
-                aff_mod = reward.get("affection", 0)
-                self.affection_level = max(0, self.affection_level + aff_mod) # Removed min(100, ...) as affection_level can exceed 100
             elif r_type == "affection":
                 self.affection_level += reward.get("amount", 0)
-
-        next_node = opt.get("next")
-        if next_node == "exit":
-            self.active_convo = ""
-            self.convo_options = []
-            self.active_image_override = ""
-            self.active_effect = ""
-        else:
-            self.activate_node(next_node)
+            
+        self.last_speech_time = time.time()
+        self.speech_style = "event" # Center style for narrative
+        self.dialogue_duration = 7.0 # Sufficient time to read
         
-        self.affection_level += 5 # Talking increases bond
+        if node_id == "rpg_success":
+            self.success_trigger = True
+
+    def select_option(self, index):
+        # Obsolete but kept for safety in main logic until refactored
+        pass
 
     def care_action(self, action):
-        # 20% chance to say something
-        should_speak = random.random() < 0.2
-        
-        if action == "feed":
-            self.needs["snacks"] = min(100.0, self.needs["snacks"] + 25.0)
-            if should_speak: self.trigger_speech(manual="Kekse! Ich meine... Datenfragmente! Danke.")
-        elif action == "clean":
-            self.needs["maintenance"] = min(100.0, self.needs["maintenance"] + 40.0)
-            if should_speak: self.trigger_speech(manual="Bunker wird defragmentiert. Endlich Ordnung.")
-        elif action == "pet":
-            self.needs["affection"] = min(100.0, self.needs["affection"] + 15.0)
-            self.affection_level += 10
-            if should_speak: self.trigger_speech(manual="*Hamster-Geräusche* ... ich meine, die Hardware vibriert nur.")
-        elif action == "boost":
-            self.needs["charge"] = min(100.0, self.needs["charge"] + 30.0)
-            if should_speak: self.trigger_speech(manual="Overclocking aktiviert! Energie-Reserven gefüllt.")
-        
-        self.last_action = action
-        self.last_action_time = time.time()
-        self.save_memory()
+        # Obsolete but kept for safety
+        pass
 
     def get_current_speech(self):
         if self.active_convo: return self.current_dialogue

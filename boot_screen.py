@@ -52,10 +52,10 @@ class BootScreen:
     def _load_boot_messages(self) -> dict:
         """Load boot messages from file"""
         messages = {
-            'header': ['ROBCO INDUSTRIES UNIFIED OPERATING SYSTEM', 'HEUM-TEC CRITL OS VERSION 2.1.0'],
+            'header': ['ROBCO INDUSTRIES UNIFIED OPERATING SYSTEM', 'ROBOT OS VERSION 2.1.0'],
             'check': ['Initialisiere System...', 'Lade Module...', 'Prüfe Integrität...'],
             'success': ['OK', 'BEREIT', 'GELADEN'],
-            'component': ['CRITL CORE', 'PERSONALITY MODULE', 'TAMAGOTCHI ENGINE']
+            'component': ['ROBOT CORE', 'PERSONALITY MODULE', 'TAMAGOTCHI ENGINE']
         }
         
         boot_file = os.path.join("assets", "boot_messages.txt")
@@ -182,7 +182,7 @@ class BootScreen:
                 y_pos += 35
             
             # Copyright
-            copyright_text = "COPYRIGHT 2075-2077 ROBCO INDUSTRIES - HEUM-TEC DIVISION"
+            copyright_text = "COPYRIGHT 2075-2077 ROBCO INDUSTRIES - ROBOT DIVISION"
             copyright = self.font_tiny.render(copyright_text, True, self.DIM_GREEN)
             self.screen.blit(copyright, (30, y_pos + 20))
             
@@ -275,7 +275,7 @@ class BootScreen:
         return True
     
     def _phase_component_loading(self, clock) -> bool:
-        """Phase 3: Load CRITL components"""
+        """Phase 3: Load ROBOT components"""
         components = self.messages['component'][:6]
         
         for i, component in enumerate(components):
@@ -291,7 +291,7 @@ class BootScreen:
                 self.screen.fill(self.BLACK)
                 
                 # Header
-                header = self.font_small.render("LADE CRITL KOMPONENTEN", True, self.GREEN_SOFT)
+                header = self.font_small.render("LADE ROBOT KOMPONENTEN", True, self.GREEN_SOFT)
                 self.screen.blit(header, (30, 30))
                 pygame.draw.line(self.screen, self.GREEN, (30, 55), (350, 55), 1)
                 
@@ -397,7 +397,7 @@ class BootScreen:
             self.screen.blit(success, (x, y))
             
             # Starting message
-            starting = self.font_small.render("Starte CRITL OS...", True, self.GREEN_SOFT)
+            starting = self.font_small.render("Starte ROBOT OS...", True, self.GREEN_SOFT)
             self.screen.blit(starting, (x, y + 60))
             
             self._draw_border()
@@ -412,7 +412,7 @@ if __name__ == "__main__":
     # Test boot screen
     pygame.init()
     screen = pygame.display.set_mode((640, 480))
-    pygame.display.set_caption("CRITL OS Boot")
+    pygame.display.set_caption("ROBOT OS Boot")
     
     boot = BootScreen(screen)
     

@@ -25,7 +25,7 @@ ev_dur = 0
 # --- TIME CONFIG (Adjust for Lore or Hardware Drift) ---
 TIME_OFFSET_H = 0    # Hours
 TIME_OFFSET_M = 0    # Minutes
-LORE_YEAR_OFFSET = 51 # 2026 -> 2077 (Fallout Lore)
+LORE_YEAR_OFFSET = 0 # Reverted from Lore Offset (51) to Actual Year
 
 from datetime import timedelta
 def get_adjusted_time():
@@ -194,12 +194,18 @@ EVENTS = [
     {"type":"pain_harold", "min":10, "max":20}
 ]
 
-# ============================================================
-# INIT
-# ============================================================
+# Command-Line Arguments checken
+DEBUG_MODE = "--debug" in sys.argv or "--windowed" in sys.argv
+
 pygame.init()
+
 # Mit pygame.FULLSCREEN | pygame.NOFRAME wird es wieder echtes Vollbild ohne Ränder
-screen = pygame.display.set_mode((W,H), pygame.FULLSCREEN | pygame.NOFRAME)
+display_flags = pygame.FULLSCREEN | pygame.NOFRAME
+if DEBUG_MODE:
+    display_flags = 0 # Normales Fenster für Debugging
+    print("DEBUG MODE AKTIV: Starte im Fenstermodus.")
+
+screen = pygame.display.set_mode((W,H), display_flags)
 
 # Hier entscheidest du über den Mauszeiger:
 # True  = Mauszeiger ist sichtbar (gut für Touch/Bedienung)
@@ -304,7 +310,7 @@ def draw_bar(x, y, w, h, prog, is_pause, remain, label, t_start, t_end):
     s_light = font_body.render(full_text, True, GREEN_SOFT)
     s_dark  = font_body.render(full_text, True, BLACK)
     tx = x + (w - s_light.get_width()) // 2
-    ty = y + (h - s_light.get_height()) // 2
+    ty = y + (h - s_light.get_height()) // 2 + 3 # Improved vertical shift for visual center
     screen.set_clip(pygame.Rect(x+3, y+3, fill_w, h-6))
     screen.blit(s_dark, (tx, ty))
     screen.set_clip(pygame.Rect(x+3+fill_w, y+3, w-6-fill_w, h-6))
@@ -313,16 +319,21 @@ def draw_bar(x, y, w, h, prog, is_pause, remain, label, t_start, t_end):
 
 def draw_speech_bubble(text, source_pos):
     if not text: return
-    # Max widths and padding
-    max_w = 200
-    pad = 10
+    style = getattr(critl, 'speech_style', 'default')
+    
+    # Larger width for narrative
+    max_w = 400 if style == "event" else 200
+    pad = 15
+    
     # Wrap text
     words = text.split(' ')
     lines = []
     current_line = ""
+    target_font = font_body if style == "event" else font_v_small
+    
     for w in words:
         test_line = current_line + w + " "
-        if font_v_small.size(test_line)[0] < max_w:
+        if target_font.size(test_line)[0] < max_w:
             current_line = test_line
         else:
             lines.append(current_line)
@@ -330,15 +341,14 @@ def draw_speech_bubble(text, source_pos):
     lines.append(current_line)
     
     # Calculate bubble size
-    tw = max(font_v_small.size(l)[0] for l in lines)
-    th = len(lines) * (font_v_small.get_height() + 2)
+    tw = max(target_font.size(l)[0] for l in lines)
+    th = len(lines) * (target_font.get_height() + 2)
     bw, bh = tw + pad*2, th + pad*2
     
-    # Position: Default (above CRITL) or Event (Bottom Right)
-    style = getattr(critl, 'speech_style', 'default')
+    # Position: Default (above CRITL) or Narrative (Centered Bottom)
     if style == "event":
-        bx = W - bw - 20
-        by = H - bh - 120 # Above needs footer
+        bx = W // 2 - bw // 2
+        by = H - bh - 160 # Above needs footer
     else:
         bx = source_pos[0] - bw - 10
         by = source_pos[1] - bh // 2
@@ -349,15 +359,12 @@ def draw_speech_bubble(text, source_pos):
     
     # Draw text
     for i, line in enumerate(lines):
-        txt_surf = font_v_small.render(line.strip(), True, GREEN)
-        screen.blit(txt_surf, (bx + pad, by + pad + i * (font_v_small.get_height() + 2)))
+        txt_surf = target_font.render(line.strip(), True, GREEN)
+        screen.blit(txt_surf, (bx + pad, by + pad + i * (target_font.get_height() + 2)))
     
-    # Draw "tail"
+    # Sink tail deleted for narrative look
     if style == "default":
         pygame.draw.polygon(screen, GREEN, [(bx+bw, by+bh//2-5), (bx+bw+10, by+bh//2), (bx+bw, by+bh//2+5)])
-    else:
-        # Tail pointing towards the screen center or bottom
-        pygame.draw.polygon(screen, GREEN, [(bx+bw//2-5, by+bh), (bx+bw//2, by+bh+10), (bx+bw//2+5, by+bh)])
 
 def draw_edge_scan(t):
     lw, lx = 60, int((t * 100) % W)
@@ -406,10 +413,21 @@ def draw_needs_footer():
         border_col = ORANGE if is_flashing else (GREEN_SOFT if hover else GREEN)
         pygame.draw.rect(screen, border_col, rect, 1)
         
-        # --- ICON POSITION (Inside Box) ---
-        icon_x, icon_y = bx + 10, bar_y + (bar_h - 18)//2
+        # --- CALC CENTERED CONTENT ---
+        val_text = f"{int(val)}%"
+        col = GREEN if val > 50 else (ORANGE if val > 20 else RED)
+        txt = font_v_small.render(val_text, True, col if not hover else GREEN_SOFT)
+        
+        icon_w = 18
+        spacer = 8
+        content_w = icon_w + spacer + txt.get_width()
+        start_x = bx + (rect.width - content_w) // 2
+        
+        icon_x = start_x
+        icon_y = bar_y + (bar_h - 18)//2
         icon_col = border_col
 
+        # --- DRAW ICON ---
         if key == "snacks": # PEANUT FLIP (Hexagon)
              pts = [(icon_x, icon_y+5), (icon_x+8, icon_y), (icon_x+16, icon_y+ 5), (icon_x+16, icon_y+13), (icon_x+8, icon_y+18), (icon_x, icon_y+13)]
              pygame.draw.polygon(screen, icon_col, pts, 1 if not hover else 0)
@@ -424,11 +442,10 @@ def draw_needs_footer():
              pts = [(icon_x+10, icon_y), (icon_x+2, icon_y+10), (icon_x+8, icon_y+10), (icon_x+4, icon_y+20), (icon_x+14, icon_y+8), (icon_x+8, icon_y+8)]
              pygame.draw.lines(screen, icon_col, False, pts, 2)
 
-        # --- PERCENTAGE VALUE ---
-        val_text = f"{int(val)}%"
-        col = GREEN if val > 50 else (ORANGE if val > 20 else RED)
-        txt = font_v_small.render(val_text, True, col if not hover else GREEN_SOFT)
-        screen.blit(txt, (bx + 35, rect.centery - txt.get_height()//2))
+        # --- DRAW TEXT ---
+        text_x = start_x + icon_w + spacer
+        text_y = bar_y + (bar_h - txt.get_height()) // 2 + 1
+        screen.blit(txt, (text_x, text_y))
             
     return rects
 
@@ -502,49 +519,31 @@ def draw_rainbow_overlay():
         screen.blit(s, (0, 0))
 
 
-def draw_choice_ui():
-    if not critl.convo_options: critl.active_convo = ""
-    if not critl.active_convo or not critl.convo_options: return []
-    
-    rects = []
-    start_y = H - 240
-    for i, opt in enumerate(critl.convo_options):
-        # Render text first to get size
-        txt = font_v_small.render(opt["text"], True, GREEN)
-        tw, th = txt.get_width(), txt.get_height()
-        
-        # Calculate dynamic rect
-        rw = max(240, tw + 20)
-        rect = pygame.Rect(40, start_y + i * 50, rw, 40)
-        
-        mx, my = pygame.mouse.get_pos()
-        is_hover = rect.collidepoint(mx, my)
-        
-        # Draw button
-        pygame.draw.rect(screen, DIM_GREEN, rect)
-        pygame.draw.rect(screen, GREEN if is_hover else GREEN_SOFT, rect, 2)
-        
-        # Draw text centered vertically
-        txt_color = GREEN if is_hover else GREEN_SOFT
-        txt = font_v_small.render(opt["text"], True, txt_color)
-        screen.blit(txt, (rect.x + 10, rect.y + 10))
-        rects.append(rect)
-    return rects
+# draw_choice_ui eliminated
 
 # ============================================================
 # BOOT SEQUENCE
 # ============================================================
 def run_boot_sequence():
-    """Run boot sequence on startup"""
-    # Check for updates
-    update_info = updater.check_for_updates()
+    """Run boot sequence on startup with automatic update check"""
+    # 1. Check for updates (Forced check on every boot)
+    print("Update Check: Prüfe auf neue Versionen...")
+    update_info = updater.check_for_updates(force=True)
     
-    # Run boot screen
+    # 2. If update available, run update process
+    if update_info:
+        print(f"Update gefunden: {update_info.get('version')}")
+        # Run the update UI (Download + Install)
+        if update_screen.run_full_update(update_info):
+            print("Update erfolgreich. Starte System neu...")
+            # Restart the script
+            pygame.quit()
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+            sys.exit()
+    
+    # 3. Regular boot screen
     if not boot_screen.run_boot_sequence(update_info):
         return False
-    
-    # If update available, offer to install (for now just show info)
-    # In production, you could add user prompt here
     
     return True
 
@@ -652,7 +651,7 @@ if __name__ == "__main__":
                 debug_map = {
                     pygame.K_F1: "rads", pygame.K_F2: "critical", pygame.K_F3: "vats",
                     pygame.K_F4: "error", pygame.K_F5: "chem", pygame.K_F6: "vision",
-                    pygame.K_F7: "censored", pygame.K_F8: "emote", pygame.K_F9: "matrix",
+                    pygame.K_F7: "censored", pygame.K_F8: "emote", pygame.K_F9: "this_is_fine",
                     pygame.K_F10: "grumpy_cat", pygame.K_F11: "surprised_pikachu", pygame.K_F12: "pain_harold"
                 }
                 if e.key in debug_map:
@@ -670,37 +669,8 @@ if __name__ == "__main__":
             if e.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
                 
-                # --- TOUCH HANDLING FOR RPG MENU ---
-                pass
-    
-                # --- TAMAGOTCHI FOOTER CLICK ---
-                needs_btns = draw_needs_footer()
-                for rect, action in needs_btns:
-                    if rect.collidepoint(mx, my):
-                        critl.care_action(action)
-                        # need_flashes[action] = t_now + 0.3
-                        # critl_flash = t_now + 0.5
-                        continue 
-    
-                # --- STORY CHOICES CLICK ---
-                choice_btns = draw_choice_ui()
-                for i, rect in enumerate(choice_btns):
-                    if rect.collidepoint(mx, my):
-                        critl.select_option(i)
-                        continue
-                # --- CRITL CLICK ---
-                if pygame.Rect(W - 360, 40, 350, 350).collidepoint(mx, my):
-                     if not active_event:
-                        # TRIGGER RANDOM EVENT DIRECTLY
-                        active_event = random.choice(EVENTS)
-                        ev_start, ev_dur = t_now, random.randint(active_event["min"], active_event["max"])
-                        # critl.trigger_event_speech(active_event["type"])
-                        print(f"DEBUG: Manually triggered event {active_event['type']}")
-                     else:
-                         critl.trigger_speech(manual="Siehst du nicht, dass hier gerade Chaos herrscht?!")
-                
-                # --- NEXT EVENT TIMER RESET IF CLICKED ---
-                next_event = t_now + random.randint(120, 300)
+                # INTERACTION REMOVED
+                # Clicks no longer trigger care actions or choices
                 
                 if active_event and active_event["type"] == "hacking":
                      res = hacking_game.handle_click((mx, my))
@@ -738,7 +708,24 @@ if __name__ == "__main__":
                 pygame.draw.line(screen, (100, 200, 255), (0, sy-2), (W, sy-2), 1)
             
             elif et in ["doge", "success_kid", "this_is_fine", "grumpy_cat", "surprised_pikachu", "pain_harold"]:
-                pass # Images hidden during events as requested
+                # --- MEME EVENT DISPLAY ---
+                img = get_story_asset(et)
+                if img:
+                    # Subtle Zoom/Bounce Effect
+                    scale_pulse = 1.0 + 0.05 * math.sin(t_now * 5)
+                    sw, sh = int(350 * scale_pulse), int(350 * scale_pulse)
+                    img_scaled = pygame.transform.smoothscale(img, (sw, sh))
+                    screen.blit(img_scaled, (W//2 - sw//2, H//2 - sh//2))
+                
+                # Special Flair for "This is Fine"
+                if et == "this_is_fine":
+                    tint((255, 100, 0), int(30 + 30 * math.sin(t_now * 8)))
+                    # Random Fire Sparks
+                    for _ in range(30):
+                        rx, ry = random.randint(0, W), random.randint(0, H)
+                        pygame.draw.circle(screen, (255, random.randint(150, 255), 0), (rx, ry), random.randint(1, 3))
+                        if random.random() > 0.9:
+                            pygame.draw.line(screen, (255, 200, 50), (rx, ry), (rx, ry - random.randint(10, 30)), 1)
             elif et == "glitch_green":
                 for _ in range(600):
                     screen.set_at((random.randrange(W), random.randrange(H)), (100, 255, 100))
@@ -1106,8 +1093,7 @@ if __name__ == "__main__":
             elif et == "matrix": tint(GREEN, 20)
             else: tint(GREEN, 15)
 
-        # --- DRAW CHOICES ---
-        draw_choice_ui()
+        # draw_choice_ui() call removed
         
         draw_rainbow_overlay()
     
